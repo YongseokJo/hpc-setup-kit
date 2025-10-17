@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Use BASH_SOURCE when available; fall back to $0; protect dirname with --
+SELF="${BASH_SOURCE[0]:-$0}"
+REPO_DIR="$(cd "$(dirname -- "$SELF")" && pwd)"
 
 # --- tmux ---
 if [ -f "$HOME/.tmux.conf" ] && [ ! -L "$HOME/.tmux.conf" ]; then
@@ -22,6 +24,18 @@ ln -sf "$REPO_DIR/vimrc" "$HOME/.vimrc"
 # Bootstrap Vundle (vimrc also auto-clones it, but do it here to avoid first-run delay)
 if [ ! -d "$HOME/.vim/bundle/Vundle.vim" ]; then
   git clone https://github.com/VundleVim/Vundle.vim "$HOME/.vim/bundle/Vundle.vim"
+fi
+
+# Ensure Zenburn present (plugin + direct colors fallback)
+if [ ! -d "$HOME/.vim/bundle/zenburn" ]; then
+  echo "[vim] Installing Zenburn colorscheme..."
+  git clone https://github.com/jnurmine/Zenburn.git "$HOME/.vim/bundle/zenburn"
+fi
+
+# Put/Link the colors file where Vim always finds it
+mkdir -p "$HOME/.vim/colors"
+if [ -f "$HOME/.vim/bundle/zenburn/colors/zenburn.vim" ]; then
+  ln -sf "$HOME/.vim/bundle/zenburn/colors/zenburn.vim" "$HOME/.vim/colors/zenburn.vim"
 fi
 
 # Non-interactive plugin install (safe if vim is headless on clusters)

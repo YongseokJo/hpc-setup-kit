@@ -99,7 +99,12 @@ call vundle#begin()
 Plugin 'VundleVim/Vundle.vim'           " (new name for gmarik/Vundle.vim)
 Plugin 'tmhedberg/SimpylFold'
 Plugin 'vim-scripts/indentpython.vim'
-Plugin 'ycm-core/YouCompleteMe'
+if has('python3') && has('patch-9.1.0016')
+  Plugin 'ycm-core/YouCompleteMe'
+else
+	Plugin 'prabirshrestha/asyncomplete.vim'
+	Plugin 'prabirshrestha/vim-lsp'
+endif
 "Plugin 'vim-syntastic/syntastic'
 Plugin 'nvie/vim-flake8'
 Plugin 'jnurmine/Zenburn'
@@ -109,5 +114,11 @@ Plugin 'ctrlpvim/ctrlp.vim'
 Plugin 'vim-airline/vim-airline'
 Plugin 'vim-airline/vim-airline-themes'
 call vundle#end()
+
+try
+  colorscheme zenburn
+catch /^Vim\%((\a\+)\)\=:E185/
+  colorscheme default
+endtry
 
 filetype plugin indent on
