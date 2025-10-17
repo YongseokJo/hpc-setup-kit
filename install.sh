@@ -43,6 +43,11 @@ if command -v vim >/dev/null 2>&1; then
   vim +PluginInstall +qall || true
 fi
 
+# --- shell aliases/functions (bashrc/zshrc) ---
+if [ -x "$REPO_DIR/scripts/install_shell_snippets.sh" ]; then
+  "$REPO_DIR/scripts/install_shell_snippets.sh"
+fi
+
 cat << 'MSG'
 Installed.
 
