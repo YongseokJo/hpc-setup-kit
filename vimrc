@@ -8,6 +8,7 @@ set encoding=utf-8
 syntax on
 set number
 inoremap kj <esc>
+set pastetoggle=<F2>
 
 " --- Search ---
 set hlsearch

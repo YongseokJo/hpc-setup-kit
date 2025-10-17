@@ -4,7 +4,9 @@ set -euo pipefail
 BLOCK_START="# >>> tmux-vim-portable aliases >>>"
 BLOCK_END="# <<< tmux-vim-portable aliases <<<"
 
-read -r -d '' BLOCK_CONTENT <<'EOF'
+# 1) capture the block literally (no expansion)
+tmp_block="$(mktemp)"
+cat >"$tmp_block" <<'EOF'
 # >>> tmux-vim-portable aliases >>>
 ### Alias
 alias down_popeye="scp yjo10@popeye:~/ceph/transfer/* ~/ceph/transfer"
@@ -29,6 +31,7 @@ alias gpu_check="~carriero/bin/gpuUsage -t 4 -u yjo10"
 alias rr="ssh rustyamd2"
 # alias sr="sbatch run.sh"
 
+# sbatch helper: remember last run script per directory
 function sr {
   local last_file_path=".last_run_code"
   if [ $# -eq 1 ]; then
@@ -49,37 +52,49 @@ function sr {
   fi
 }
 
+# Bash-only keybindings (guarded)
 if [ -n "${BASH_VERSION:-}" ]; then
   set -o vi
-  bind '"kj":vi-movement-mode'
-  bind '"^z": run-fg-editor'
-  bind '"\e[A": history-search-backward'
-  bind '"\e[B": history-search-forward'
+	bind '"kj": vi-movement-mode'
+	bind '"^z": run-fg-editor'
+	bind '"\e[A": history-search-backward'
+	bind '"\e[B": history-search-forward'
 fi
 # <<< tmux-vim-portable aliases <<<
 EOF
 
-add_block () {
-  local rcfile="$1"
-  [ -f "$rcfile" ] || touch "$rcfile"
-  if grep -qF "$BLOCK_START" "$rcfile"; then
-    awk -v start="$BLOCK_START" -v end="$BLOCK_END" -v repl="$BLOCK_CONTENT" '
-      $0==start {print start; print repl; inblock=1; next}
-      $0==end   {print end; inblock=0; next}
-      !inblock  {print}
-    ' "$rcfile" > "${rcfile}.tmp"
-    mv "${rcfile}.tmp" "$rcfile"
-  else
-    { echo ""; echo "$BLOCK_CONTENT"; } >> "$rcfile"
-  fi
-  echo "Updated: $rcfile"
+update_one() {
+	rc="$1"
+	[ -f "$rc" ] || touch "$rc"
+
+	tmp_rc="$(mktemp)"
+	# 2) drop any existing block (between markers, inclusive)
+	awk -v s="$BLOCK_START" -v e="$BLOCK_END" '
+		BEGIN{inblk=0}
+		$0==s {inblk=1; next}
+		$0==e {inblk=0; next}
+		!inblk {print}
+		' "$rc" > "$tmp_rc"
+
+	# ensure trailing newline
+	printf "\n" >> "$tmp_rc"
+	# 3) append the fresh block
+	cat "$tmp_block" >> "$tmp_rc"
+
+	mv "$tmp_rc" "$rc"
+	echo "Updated: $rc"
 }
 
 targets=()
 [ -f "$HOME/.bashrc" ] && targets+=("$HOME/.bashrc")
 [ -f "$HOME/.zshrc" ] && targets+=("$HOME/.zshrc")
-if [ ${#targets[@]} -eq 0 ]; then
-  if [[ "${SHELL:-}" == *zsh* ]]; then targets+=("$HOME/.zshrc"); else targets+=("$HOME/.bashrc"); fi
+if [ "${#targets[@]}" -eq 0 ]; then
+	case "${SHELL:-}" in *zsh*) targets+=("$HOME/.zshrc");; *) targets+=("$HOME/.bashrc");; esac
 fi
-for rc in "${targets[@]}"; do add_block "$rc"; done
-echo "Done. source ~/.bashrc or ~/.zshrc"
+
+for rc in "${targets[@]}"; do
+	update_one "$rc"
+done
+
+rm -f "$tmp_block"
+echo "Done. Run:  source ~/.bashrc   or   source ~/.zshrc"

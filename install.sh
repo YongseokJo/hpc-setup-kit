@@ -59,4 +59,7 @@ vim:
   - Plugins installed via Vundle; if YouCompleteMe is present:
       cd ~/.vim/bundle/YouCompleteMe && python3 install.py --clangd-completer || true
     (optional; skip if toolchain unavailable on the cluster)
+
+shell:
+  - Aliases/functions added between markers in ~/.bashrc and/or ~/.zshrc
 MSG
