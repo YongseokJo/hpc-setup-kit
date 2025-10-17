@@ -1,0 +1,9 @@
+# Backups / local artifacts
+.tmux.conf.bak*
+.vimrc.bak*
+.DS_Store
+*.swp
+*.swo
+
+# Vim bundles (optional to keep repo slim; remove if you vendor plugins)
+.vim/bundle/
