@@ -5,5 +5,7 @@
 *.swp
 *.swo
 
+rclone/rclone
+
 # Vim bundles (optional to keep repo slim; remove if you vendor plugins)
 .vim/bundle/

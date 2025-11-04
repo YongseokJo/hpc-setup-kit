@@ -48,7 +48,7 @@ if [ -x "$REPO_DIR/scripts/install_shell_snippets.sh" ]; then
   "$REPO_DIR/scripts/install_shell_snippets.sh"
 fi
 
-./rclone_config.sh
+./setup_rclone.sh
 
 cat << 'MSG'
 Installed.
