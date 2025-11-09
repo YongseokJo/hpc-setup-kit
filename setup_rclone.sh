@@ -1,8 +1,7 @@
 #!/bin/bash
 
 mkdir -p ~/.config/rclone
-cp rclone.conf ~/.config/rclone/
-chmod 600 ~/.config/rclone/rclone.conf
+
 
 # Add rclone binary path to .bash_profile if not already there
 if ! grep -q "export PATH=$(pwd)\\rclone:\$PATH" ~/.bash_profile 2>/dev/null; then
@@ -25,6 +24,9 @@ echo ">>> Base directory: $BASE_DIR"
 echo ">>> Installing rclone binary to: $INSTALL_DIR"
 echo ">>> Config file: $CONFIG_FILE"
 echo
+
+gpg --output rclone/rclone.conf --decrypt rclone/rclone.gpg
+
 
 # -----------------------------
 # 1) Download and install rclone
@@ -57,8 +59,8 @@ echo ">>> rclone installed successfully in $INSTALL_DIR"
 mkdir -p "$CONFIG_DEST_DIR"
 
 if [[ -f "$CONFIG_FILE" ]]; then
-	echo ">>> Copying config to $CONFIG_DEST_DIR"
-	cp "$CONFIG_FILE" "$CONFIG_DEST_DIR/rclone.conf"
+	echo ">>> Copying config to $CONFIG_DEST_DIR from $CONFIG_FILE" 
+	mv "$CONFIG_FILE" "$CONFIG_DEST_DIR/rclone.conf"
 	chmod 600 "$CONFIG_DEST_DIR/rclone.conf"
 else
 	echo "WARNING: $CONFIG_FILE not found. Skipping config copy."
