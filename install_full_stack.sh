@@ -58,8 +58,8 @@ rm -rf "$HOME/.fzf"
 mkdir -p "$BIN_DIR" "$LIB_DIR" "$INCLUDE_DIR" "$MAN_DIR" "$TMP_DIR"
 
 # Export paths for compilation
-export CFLAGS="-I$INCLUDE_DIR"
-export LDFLAGS="-L$LIB_DIR -Wl,-rpath,$LIB_DIR"
+# export CFLAGS="-I$INCLUDE_DIR"
+# export LDFLAGS="-L$LIB_DIR -Wl,-rpath,$LIB_DIR"
 export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig"
 export PATH="$BIN_DIR:$PATH"
 export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
