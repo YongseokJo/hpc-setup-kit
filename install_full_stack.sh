@@ -124,13 +124,13 @@ echo -e "${GREEN}>>> Installing Dependencies (Ncurses, Libevent)...${NC}"
 echo -e "${BLUE}(Note: You may see 'ldconfig: Permission denied' errors. This is normal without sudo and can be ignored.)${NC}"
 
 # Ncurses
-if [ -f "$LIB_DIR/pkgconfig/ncurses.pc" ]; then
+if [ -f "$LIB_DIR/pkgconfig/ncurses.pc" ] || [ -f "$LIB_DIR/libncursesw.so" ]; then
      echo -e "${BLUE}Ncurses already installed. Skipping.${NC}"
 else
     NCURSES_VER="6.4"
     download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}.tar.gz"
     cd "$TMP_DIR/ncurses-${NCURSES_VER}"
-    ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-pc-files --with-pkg-config-libdir="$LIB_DIR/pkgconfig" > /dev/null
+    ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-widec --enable-pc-files --with-pkg-config-libdir="$LIB_DIR/pkgconfig" > /dev/null
     make -j$(nproc) > /dev/null
     make install > /dev/null 2>&1 || true # Suppress ldconfig noise
 fi
@@ -158,7 +158,7 @@ else
     cd "$TMP_DIR/tmux-${TMUX_VER}"
     # User requested: ./configure CFLAGS="-I$MY_LOCAL/include" LDFLAGS="-L$MY_LOCAL/lib" --prefix=$MY_LOCAL
     # We map $MY_LOCAL to $INSTALL_PREFIX
-    ./configure CFLAGS="-I$INSTALL_PREFIX/include -I$INSTALL_PREFIX/include/ncurses" LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib" --prefix="$INSTALL_PREFIX" > /dev/null
+    ./configure CFLAGS="-I$INSTALL_PREFIX/include -I$INSTALL_PREFIX/include/ncursesw" LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib" --prefix="$INSTALL_PREFIX" > /dev/null
     make -j$(nproc) > /dev/null
     make install > /dev/null
 fi
