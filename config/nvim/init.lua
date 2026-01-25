@@ -34,6 +34,9 @@ vim.opt.cursorline = true
 vim.opt.scrolloff = 10
 vim.opt.termguicolors = true
 
+-- Keymaps
+vim.keymap.set("i", "kj", "<Esc>", { desc = "Escape insert mode" })
+
 -- Setup Plugins
 require("lazy").setup({
   -- Theme
