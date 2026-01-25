@@ -277,7 +277,8 @@ else
         curl -L --fail -O "https://github.com/charmbracelet/glow/releases/download/v${GLOW_VER}/$GLOW_ARCHIVE"
     fi
     tar -xf "$GLOW_ARCHIVE"
-    cp "glow" "$BIN_DIR/"
+    # The binary is inside a subdirectory
+    cp glow*/glow "$BIN_DIR/"
 fi
 
 # Jq
