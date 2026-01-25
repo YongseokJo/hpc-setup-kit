@@ -8,9 +8,9 @@ out="$(squeue -h -u "$USER" -o "%T" 2>/dev/null | awk '
   $1=="RUNNING"{r++}
   $1=="PENDING"{pd++}
   END{
-    if(r+pd==0){exit}
     printf("Running:%d | Pending:%d", r, pd)
   }')"
 
+#if(r+pd==0){exit}
 [[ -n "$out" ]] && echo "$out"
 
