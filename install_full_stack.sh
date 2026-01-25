@@ -4,114 +4,10 @@ set -e
 # ==============================================================================
 # GEMINI HPC FULL STACK INSTALLER (CLEAN SLATE)
 # ==============================================================================
-# Installs: Neovim, Tmux, Starship, Fzf, Ripgrep, Lazygit, Fd, Zoxide, Gh, Glow
+# Installs: Neovim, Tmux, Starship, Fzf, Ripgrep, Lazygit, Fd, Zoxide, Gh, Glow, Jq
 # Target: ~/.local/bin
 # Behavior: DELETES existing configs/binaries and reinstalls from Kit.
 # ==============================================================================
-
-# ... (Previous content) ...
-
-# 6. INSTALL BINARIES (Neovim, Ripgrep, Lazygit, Fd, Zoxide, Gh, Glow)
-# ------------------------------------------------------------------------------
-echo -e "${GREEN}>>> Installing Binaries...${NC}"
-
-# ... (Neovim block remains same) ...
-
-# Ripgrep
-if [ -x "$BIN_DIR/rg" ]; then
-    echo -e "${BLUE}Ripgrep already installed. Skipping.${NC}"
-else
-    RG_VER="14.1.0"
-    RG_ARCHIVE="ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz"
-    # ... (rest of logic) ...
-fi
-
-# Fd
-if [ -x "$BIN_DIR/fd" ]; then
-    echo -e "${BLUE}Fd already installed. Skipping.${NC}"
-else
-    echo -e "${GREEN}>>> Installing Fd...${NC}"
-    FD_VER="10.2.0"
-    FD_ARCHIVE="fd-v${FD_VER}-x86_64-unknown-linux-musl.tar.gz"
-
-    if [ -f "$FD_ARCHIVE" ] && ! tar -tf "$FD_ARCHIVE" &>/dev/null; then
-        rm -f "$FD_ARCHIVE"
-    fi
-
-    if [ ! -f "$FD_ARCHIVE" ]; then
-        curl -L --fail -O "https://github.com/sharkdp/fd/releases/download/v${FD_VER}/$FD_ARCHIVE"
-    fi
-    tar -xf "$FD_ARCHIVE"
-    cp "fd-v${FD_VER}-x86_64-unknown-linux-musl/fd" "$BIN_DIR/"
-fi
-
-# Zoxide
-if [ -x "$BIN_DIR/zoxide" ]; then
-    echo -e "${BLUE}Zoxide already installed. Skipping.${NC}"
-else
-    echo -e "${GREEN}>>> Installing Zoxide...${NC}"
-    ZOXIDE_VER="0.9.6"
-    ZOXIDE_ARCHIVE="zoxide-${ZOXIDE_VER}-x86_64-unknown-linux-musl.tar.gz"
-
-    if [ -f "$ZOXIDE_ARCHIVE" ] && ! tar -tf "$ZOXIDE_ARCHIVE" &>/dev/null; then
-        rm -f "$ZOXIDE_ARCHIVE"
-    fi
-
-    if [ ! -f "$ZOXIDE_ARCHIVE" ]; then
-        curl -L --fail -O "https://github.com/ajeetdsouza/zoxide/releases/download/v${ZOXIDE_VER}/$ZOXIDE_ARCHIVE"
-    fi
-    tar -xf "$ZOXIDE_ARCHIVE"
-    cp "zoxide" "$BIN_DIR/"
-fi
-
-# GitHub CLI (gh)
-if [ -x "$BIN_DIR/gh" ]; then
-    echo -e "${BLUE}GitHub CLI already installed. Skipping.${NC}"
-else
-    echo -e "${GREEN}>>> Installing GitHub CLI...${NC}"
-    GH_VER="2.63.0"
-    GH_ARCHIVE="gh_${GH_VER}_linux_amd64.tar.gz"
-
-    if [ -f "$GH_ARCHIVE" ] && ! tar -tf "$GH_ARCHIVE" &>/dev/null; then
-        rm -f "$GH_ARCHIVE"
-    fi
-
-    if [ ! -f "$GH_ARCHIVE" ]; then
-        curl -L --fail -O "https://github.com/cli/cli/releases/download/v${GH_VER}/$GH_ARCHIVE"
-    fi
-    tar -xf "$GH_ARCHIVE"
-    cp "gh_${GH_VER}_linux_amd64/bin/gh" "$BIN_DIR/"
-fi
-
-# Glow
-if [ -x "$BIN_DIR/glow" ]; then
-    echo -e "${BLUE}Glow already installed. Skipping.${NC}"
-else
-    echo -e "${GREEN}>>> Installing Glow...${NC}"
-    GLOW_VER="2.0.0"
-    GLOW_ARCHIVE="glow_${GLOW_VER}_linux_x86_64.tar.gz"
-
-    if [ -f "$GLOW_ARCHIVE" ] && ! tar -tf "$GLOW_ARCHIVE" &>/dev/null; then
-        rm -f "$GLOW_ARCHIVE"
-    fi
-
-    if [ ! -f "$GLOW_ARCHIVE" ]; then
-        curl -L --fail -O "https://github.com/charmbracelet/glow/releases/download/v${GLOW_VER}/$GLOW_ARCHIVE"
-    fi
-    tar -xf "$GLOW_ARCHIVE"
-    cp "glow" "$BIN_DIR/"
-fi
-
-# Lazygit
-# ... (Lazygit block remains same) ...
-
-# ... (Rest of script) ...
-
-# Update .bashrc for Zoxide
-if ! grep -q 'zoxide init bash' "$HOME/.bashrc"; then
-    echo 'eval "$(zoxide init bash)"' >> "$HOME/.bashrc"
-    echo -e "${BLUE}Added zoxide init to .bashrc${NC}"
-fi
 
 # 1. SETUP VARIABLES
 # ------------------------------------------------------------------------------
@@ -143,7 +39,7 @@ sleep 2
 echo -e "${RED}>>> Cleaning up old configurations...${NC}"
 
 # Remove Binaries (SKIPPED: User wants to keep binaries if they exist)
-# rm -f "$BIN_DIR/nvim" "$BIN_DIR/tmux" "$BIN_DIR/starship" "$BIN_DIR/rg" "$BIN_DIR/lazygit" "$BIN_DIR/fzf" "$BIN_DIR/tmux-slurm"
+# rm -f "$BIN_DIR/nvim" "$BIN_DIR/tmux" "$BIN_DIR/starship" "$BIN_DIR/rg" "$BIN_DIR/lazygit" "$BIN_DIR/fzf" "$BIN_DIR/tmux-slurm" "$BIN_DIR/fd" "$BIN_DIR/zoxide" "$BIN_DIR/gh" "$BIN_DIR/glow" "$BIN_DIR/jq"
 
 # Remove Configs
 rm -rf "$HOME/.config/nvim"
@@ -382,6 +278,20 @@ else
     fi
     tar -xf "$GLOW_ARCHIVE"
     cp "glow" "$BIN_DIR/"
+fi
+
+# Jq
+if [ -x "$BIN_DIR/jq" ]; then
+    echo -e "${BLUE}Jq already installed. Skipping.${NC}"
+else
+    echo -e "${GREEN}>>> Installing Jq...${NC}"
+    JQ_VER="1.8.1"
+    cd "$SRC_DIR"
+    if [ ! -f "jq-linux64" ]; then
+        curl -L --fail -o jq-linux64 "https://github.com/jqlang/jq/releases/download/jq-${JQ_VER}/jq-linux-amd64"
+    fi
+    cp jq-linux64 "$BIN_DIR/jq"
+    chmod +x "$BIN_DIR/jq"
 fi
 
 # Lazygit
