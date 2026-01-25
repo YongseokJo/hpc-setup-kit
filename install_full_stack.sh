@@ -17,7 +17,7 @@ BIN_DIR="$INSTALL_PREFIX/bin"
 LIB_DIR="$INSTALL_PREFIX/lib"
 INCLUDE_DIR="$INSTALL_PREFIX/include"
 MAN_DIR="$INSTALL_PREFIX/share/man"
-TMP_DIR="$KIT_ROOT/tmp" # Downloads and build artifacts
+TMP_DIR="${TMP_DIR:-$KIT_ROOT/tmp}" # Downloads and build artifacts (overrideable)
 
 CONFIG_SRC="$KIT_ROOT/config"
 
@@ -60,9 +60,24 @@ mkdir -p "$BIN_DIR" "$LIB_DIR" "$INCLUDE_DIR" "$MAN_DIR" "$TMP_DIR"
 # Export paths for compilation
 # export CFLAGS="-I$INCLUDE_DIR"
 # export LDFLAGS="-L$LIB_DIR -Wl,-rpath,$LIB_DIR"
-export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig"
+if [ -n "$PKG_CONFIG_PATH" ]; then
+    export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig:$PKG_CONFIG_PATH"
+else
+    export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig"
+fi
 export PATH="$BIN_DIR:$PATH"
 export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
+# Prefer real compilers over HPC wrappers for local builds.
+case "$(basename "${CC:-gcc}")" in
+    cc|CC|mpicc|mpiicc|mpicxx|mpiicpc)
+        export CC="gcc"
+        export CXX="g++"
+        ;;
+    *)
+        export CC="${CC:-gcc}"
+        export CXX="${CXX:-g++}"
+        ;;
+esac
 
 # 2.0. SETUP MODULES (HPC Environment)
 # ------------------------------------------------------------------------------
@@ -90,6 +105,29 @@ fi
 
 # 3. HELPER FUNCTIONS
 # ------------------------------------------------------------------------------
+check_c_compiler() {
+    local cc="${CC:-gcc}"
+    local test_dir="$TMP_DIR/cc-test"
+    echo -e "${BLUE}>>> Checking C compiler (${cc})...${NC}"
+    rm -rf "$test_dir"
+    mkdir -p "$test_dir"
+    cat > "$test_dir/conftest.c" <<'EOF'
+int main(void) { return 0; }
+EOF
+    if ! "$cc" "$test_dir/conftest.c" -o "$test_dir/conftest" > "$test_dir/compile.log" 2>&1; then
+        echo -e "${RED}C compiler failed to compile a test program.${NC}"
+        tail -n 40 "$test_dir/compile.log" || true
+        echo -e "${YELLOW}Hint: Missing libc headers/dev packages (e.g., glibc-devel) or broken toolchain/module.${NC}"
+        echo -e "${YELLOW}If your environment sets CC to a wrapper (cc/mpicc/mpiicc), try: CC=gcc CXX=g++ ./install_full_stack.sh${NC}"
+        exit 1
+    fi
+    if ! "$test_dir/conftest" > /dev/null 2>&1; then
+        echo -e "${RED}C compiler produced a binary that cannot run.${NC}"
+        echo -e "${YELLOW}Hint: Filesystem may be mounted noexec. Try setting TMP_DIR to an executable path (e.g., TMP_DIR=\$HOME/.local/src).${NC}"
+        exit 1
+    fi
+}
+
 download_and_extract() {
     local url=$1
     local filename=$(basename "$url")
@@ -125,6 +163,7 @@ echo -e "${BLUE}(Note: You may see 'ldconfig: Permission denied' errors. This is
 
 # Unset these to ensure clean build for dependencies
 unset CFLAGS LDFLAGS
+check_c_compiler
 
 # Ncurses
 if [ -f "$LIB_DIR/pkgconfig/ncurses.pc" ] || [ -f "$LIB_DIR/libncursesw.so" ]; then
@@ -135,7 +174,12 @@ else
     download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}.tar.gz"
     cd "$TMP_DIR/ncurses-${NCURSES_VER}"
     # Simplified config matching user's success
-    ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-widec > /dev/null
+    if ! ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-widec > "$TMP_DIR/ncurses-configure.log" 2>&1; then
+        echo -e "${RED}Ncurses configure failed. Showing tail of log:${NC}"
+        tail -n 60 "$TMP_DIR/ncurses-configure.log" || true
+        tail -n 60 "$TMP_DIR/ncurses-${NCURSES_VER}/config.log" || true
+        exit 1
+    fi
     make -j$(nproc) > /dev/null
     make install > /dev/null 2>&1 || true # Suppress ldconfig noise
 fi
@@ -154,11 +198,26 @@ fi
 
 # 5. INSTALL TMUX
 # ------------------------------------------------------------------------------
-if command -v tmux &> /dev/null || [ -f "$BIN_DIR/tmux" ]; then
-    echo -e "${BLUE}Tmux already installed. Skipping.${NC}"
+TMUX_VER="3.6a"
+TMUX_NEED_INSTALL=1
+if command -v tmux &> /dev/null; then
+    TMUX_INSTALLED_VER="$(tmux -V 2>/dev/null)"
+    TMUX_INSTALLED_VER="${TMUX_INSTALLED_VER#tmux }"
+    if [ "$TMUX_INSTALLED_VER" = "$TMUX_VER" ]; then
+        TMUX_NEED_INSTALL=0
+    fi
+elif [ -f "$BIN_DIR/tmux" ]; then
+    TMUX_INSTALLED_VER="$("$BIN_DIR/tmux" -V 2>/dev/null)"
+    TMUX_INSTALLED_VER="${TMUX_INSTALLED_VER#tmux }"
+    if [ "$TMUX_INSTALLED_VER" = "$TMUX_VER" ]; then
+        TMUX_NEED_INSTALL=0
+    fi
+fi
+
+if [ "$TMUX_NEED_INSTALL" -eq 0 ]; then
+    echo -e "${BLUE}Tmux ${TMUX_VER} already installed. Skipping.${NC}"
 else
-    echo -e "${GREEN}>>> Installing Tmux...${NC}"
-    TMUX_VER="3.6a"
+    echo -e "${GREEN}>>> Installing Tmux ${TMUX_VER}...${NC}"
     download_and_extract "https://github.com/tmux/tmux/releases/download/${TMUX_VER}/tmux-${TMUX_VER}.tar.gz"
     cd "$TMP_DIR/tmux-${TMUX_VER}"
     # User requested: ./configure CFLAGS="-I$MY_LOCAL/include" LDFLAGS="-L$MY_LOCAL/lib" --prefix=$MY_LOCAL
@@ -185,13 +244,7 @@ else
     cd neovim
     
     # Check if ninja is available, otherwise force Unix Makefiles
-    CMAKE_EXTRA_FLAGS=""
-    if ! command -v ninja &> /dev/null; then
-        echo -e "${YELLOW}Ninja not found. Configuring CMake to use Unix Makefiles...${NC}"
-        CMAKE_EXTRA_FLAGS='CMAKE_GENERATOR="Unix Makefiles"'
-    fi
-
-    make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim" $CMAKE_EXTRA_FLAGS
+    make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim"
     make install
 fi
 
@@ -339,7 +392,11 @@ else
     git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
     "$HOME/.fzf/install" --bin --no-update-rc
 fi
-ln -sf "$HOME/.fzf/bin/fzf" "$BIN_DIR/fzf"
+if [ -e "$BIN_DIR/fzf" ] && [ "$(readlink -f "$BIN_DIR/fzf")" = "$(readlink -f "$HOME/.fzf/bin/fzf")" ]; then
+    echo -e "${BLUE}Fzf symlink already points to the correct binary. Skipping link.${NC}"
+else
+    ln -sf "$HOME/.fzf/bin/fzf" "$BIN_DIR/fzf"
+fi
 
 # 8. INSTALL STARSHIP
 # ------------------------------------------------------------------------------
