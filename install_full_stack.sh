@@ -36,10 +36,10 @@ sleep 2
 
 # 2. CLEANUP (DELETE EVERYTHING RELATED)
 # ------------------------------------------------------------------------------
-echo -e "${RED}>>> Cleaning up old installations...${NC}"
+echo -e "${RED}>>> Cleaning up old configurations...${NC}"
 
-# Remove Binaries
-rm -f "$BIN_DIR/nvim" "$BIN_DIR/tmux" "$BIN_DIR/starship" "$BIN_DIR/rg" "$BIN_DIR/lazygit" "$BIN_DIR/fzf"
+# Remove Binaries (SKIPPED: User wants to keep binaries if they exist)
+# rm -f "$BIN_DIR/nvim" "$BIN_DIR/tmux" "$BIN_DIR/starship" "$BIN_DIR/rg" "$BIN_DIR/lazygit" "$BIN_DIR/fzf"
 
 # Remove Configs
 rm -rf "$HOME/.config/nvim"
@@ -50,7 +50,7 @@ rm -f "$HOME/.config/starship.toml"
 rm -rf "$HOME/.local/share/nvim"
 rm -rf "$HOME/.tmux"
 rm -rf "$HOME/.fzf"
-rm -rf "$HOME/opt/nvim" # User specified path
+# rm -rf "$HOME/opt/nvim" # User specified path - Keep if exists
 
 # Remove Libs (Optional, but ensures clean link)
 # rm -f "$LIB_DIR"/libevent* "$LIB_DIR"/libncurses* 
@@ -123,95 +123,127 @@ echo -e "${GREEN}>>> Installing Dependencies (Ncurses, Libevent)...${NC}"
 echo -e "${BLUE}(Note: You may see 'ldconfig: Permission denied' errors. This is normal without sudo and can be ignored.)${NC}"
 
 # Ncurses
-NCURSES_VER="6.4"
-download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}.tar.gz"
-cd "$SRC_DIR/ncurses-${NCURSES_VER}"
-./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-pc-files --with-pkg-config-libdir="$LIB_DIR/pkgconfig" > /dev/null
-make -j$(nproc) > /dev/null
-make install > /dev/null 2>&1 || true # Suppress ldconfig noise
+if [ -f "$LIB_DIR/pkgconfig/ncurses.pc" ]; then
+     echo -e "${BLUE}Ncurses already installed. Skipping.${NC}"
+else
+    NCURSES_VER="6.4"
+    download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}.tar.gz"
+    cd "$SRC_DIR/ncurses-${NCURSES_VER}"
+    ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-pc-files --with-pkg-config-libdir="$LIB_DIR/pkgconfig" > /dev/null
+    make -j$(nproc) > /dev/null
+    make install > /dev/null 2>&1 || true # Suppress ldconfig noise
+fi
 
 # Libevent
-LIBEVENT_VER="2.1.12-stable"
-download_and_extract "https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VER}/libevent-${LIBEVENT_VER}.tar.gz"
-cd "$SRC_DIR/libevent-${LIBEVENT_VER}"
-./configure --prefix="$INSTALL_PREFIX" > /dev/null
-make -j$(nproc) > /dev/null
-make install > /dev/null 2>&1 || true
+if [ -f "$LIB_DIR/lib/libevent.so" ] || [ -f "$LIB_DIR/libevent.so" ] || [ -f "$LIB_DIR/lib/libevent.a" ]; then
+    echo -e "${BLUE}Libevent already installed. Skipping.${NC}"
+else
+    LIBEVENT_VER="2.1.12-stable"
+    download_and_extract "https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VER}/libevent-${LIBEVENT_VER}.tar.gz"
+    cd "$SRC_DIR/libevent-${LIBEVENT_VER}"
+    ./configure --prefix="$INSTALL_PREFIX" > /dev/null
+    make -j$(nproc) > /dev/null
+    make install > /dev/null 2>&1 || true
+fi
 
 # 5. INSTALL TMUX
 # ------------------------------------------------------------------------------
-echo -e "${GREEN}>>> Installing Tmux...${NC}"
-TMUX_VER="3.6a"
-download_and_extract "https://github.com/tmux/tmux/releases/download/${TMUX_VER}/tmux-${TMUX_VER}.tar.gz"
-cd "$SRC_DIR/tmux-${TMUX_VER}"
-# User requested: ./configure CFLAGS="-I$MY_LOCAL/include" LDFLAGS="-L$MY_LOCAL/lib" --prefix=$MY_LOCAL
-# We map $MY_LOCAL to $INSTALL_PREFIX
-./configure CFLAGS="-I$INSTALL_PREFIX/include -I$INSTALL_PREFIX/include/ncurses" LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib" --prefix="$INSTALL_PREFIX" > /dev/null
-make -j$(nproc) > /dev/null
-make install > /dev/null
+if command -v tmux &> /dev/null || [ -f "$BIN_DIR/tmux" ]; then
+    echo -e "${BLUE}Tmux already installed. Skipping.${NC}"
+else
+    echo -e "${GREEN}>>> Installing Tmux...${NC}"
+    TMUX_VER="3.6a"
+    download_and_extract "https://github.com/tmux/tmux/releases/download/${TMUX_VER}/tmux-${TMUX_VER}.tar.gz"
+    cd "$SRC_DIR/tmux-${TMUX_VER}"
+    # User requested: ./configure CFLAGS="-I$MY_LOCAL/include" LDFLAGS="-L$MY_LOCAL/lib" --prefix=$MY_LOCAL
+    # We map $MY_LOCAL to $INSTALL_PREFIX
+    ./configure CFLAGS="-I$INSTALL_PREFIX/include -I$INSTALL_PREFIX/include/ncurses" LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib" --prefix="$INSTALL_PREFIX" > /dev/null
+    make -j$(nproc) > /dev/null
+    make install > /dev/null
+fi
 
 # 6. INSTALL BINARIES (Neovim, Ripgrep, Lazygit)
 # ------------------------------------------------------------------------------
 echo -e "${GREEN}>>> Installing Binaries (Neovim, Ripgrep, Lazygit)...${NC}"
 
 # Neovim (Build from Source)
-echo -e "${GREEN}>>> Building Neovim from source...${NC}"
-cd "$SRC_DIR"
-if [ -d "neovim" ]; then
-    rm -rf neovim
+if [ -x "$HOME/opt/nvim/bin/nvim" ]; then
+    echo -e "${BLUE}Neovim already installed at $HOME/opt/nvim. Skipping build.${NC}"
+else
+    echo -e "${GREEN}>>> Building Neovim from source...${NC}"
+    cd "$SRC_DIR"
+    if [ -d "neovim" ]; then
+        rm -rf neovim
+    fi
+    git clone https://github.com/neovim/neovim
+    cd neovim
+    make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim"
+    make install
 fi
-git clone https://github.com/neovim/neovim
-cd neovim
-make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim"
-make install
 
 # Symlink to BIN_DIR for consistency with the rest of this script
 ln -sf "$HOME/opt/nvim/bin/nvim" "$BIN_DIR/nvim"
 
 # Ripgrep
-RG_VER="14.1.0"
-RG_ARCHIVE="ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz"
+if [ -x "$BIN_DIR/rg" ]; then
+    echo -e "${BLUE}Ripgrep already installed. Skipping.${NC}"
+else
+    RG_VER="14.1.0"
+    RG_ARCHIVE="ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz"
 
-if [ -f "$RG_ARCHIVE" ] && ! tar -tf "$RG_ARCHIVE" &>/dev/null; then
-    echo -e "${RED}Invalid Ripgrep archive found. Deleting...${NC}"
-    rm -f "$RG_ARCHIVE"
-fi
+    if [ -f "$RG_ARCHIVE" ] && ! tar -tf "$RG_ARCHIVE" &>/dev/null; then
+        echo -e "${RED}Invalid Ripgrep archive found. Deleting...${NC}"
+        rm -f "$RG_ARCHIVE"
+    fi
 
-if [ ! -f "$RG_ARCHIVE" ]; then
-    echo -e "${YELLOW}Downloading Ripgrep...${NC}"
-    curl -L --fail -O "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VER}/$RG_ARCHIVE"
+    if [ ! -f "$RG_ARCHIVE" ]; then
+        echo -e "${YELLOW}Downloading Ripgrep...${NC}"
+        curl -L --fail -O "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VER}/$RG_ARCHIVE"
+    fi
+    tar -xf "$RG_ARCHIVE"
+    cp "ripgrep-${RG_VER}-x86_64-unknown-linux-musl/rg" "$BIN_DIR/"
 fi
-tar -xf "$RG_ARCHIVE"
-cp "ripgrep-${RG_VER}-x86_64-unknown-linux-musl/rg" "$BIN_DIR/"
 
 # Lazygit
-echo -e "${GREEN}>>> Installing Lazygit...${NC}"
-LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | sed -n 's/.*"tag_name": "v\([^"]*\)".*/\1/p' | head -n 1)
+if [ -x "$BIN_DIR/lazygit" ]; then
+    echo -e "${BLUE}Lazygit already installed. Skipping.${NC}"
+else
+    echo -e "${GREEN}>>> Installing Lazygit...${NC}"
+    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | sed -n 's/.*"tag_name": "v\([^"]*\)".*/\1/p' | head -n 1)
 
-if [ -z "$LAZYGIT_VERSION" ]; then
-    echo -e "${YELLOW}Could not detect latest Lazygit version. Defaulting to 0.40.2${NC}"
-    LAZYGIT_VERSION="0.40.2"
+    if [ -z "$LAZYGIT_VERSION" ]; then
+        echo -e "${YELLOW}Could not detect latest Lazygit version. Defaulting to 0.40.2${NC}"
+        LAZYGIT_VERSION="0.40.2"
+    fi
+
+    echo -e "Detected Lazygit version: ${LAZYGIT_VERSION}"
+
+    if [ ! -f "lazygit.tar.gz" ]; then
+        curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+    fi
+    tar xf lazygit.tar.gz
+    mv lazygit "$BIN_DIR/"
 fi
-
-echo -e "Detected Lazygit version: ${LAZYGIT_VERSION}"
-
-if [ ! -f "lazygit.tar.gz" ]; then
-    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-fi
-tar xf lazygit.tar.gz
-mv lazygit "$BIN_DIR/"
 
 # 7. INSTALL FZF
 # ------------------------------------------------------------------------------
-echo -e "${GREEN}>>> Installing Fzf...${NC}"
-git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
-"$HOME/.fzf/install" --bin --no-update-rc
+if [ -d "$HOME/.fzf" ]; then
+    echo -e "${BLUE}Fzf already installed. Skipping.${NC}"
+else
+    echo -e "${GREEN}>>> Installing Fzf...${NC}"
+    git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
+    "$HOME/.fzf/install" --bin --no-update-rc
+fi
 ln -sf "$HOME/.fzf/bin/fzf" "$BIN_DIR/fzf"
 
 # 8. INSTALL STARSHIP
 # ------------------------------------------------------------------------------
-echo -e "${GREEN}>>> Installing Starship...${NC}"
-curl -sS https://starship.rs/install.sh | sh -s -- -b "$BIN_DIR" -y > /dev/null
+if [ -x "$BIN_DIR/starship" ]; then
+    echo -e "${BLUE}Starship already installed. Skipping.${NC}"
+else
+    echo -e "${GREEN}>>> Installing Starship...${NC}"
+    curl -sS https://starship.rs/install.sh | sh -s -- -b "$BIN_DIR" -y > /dev/null
+fi
 
 # 9. RESTORE CONFIGURATIONS (Source of Truth: Kit)
 # ------------------------------------------------------------------------------
