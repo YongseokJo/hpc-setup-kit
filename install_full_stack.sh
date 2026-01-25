@@ -312,3 +312,8 @@ if ! grep -q 'starship init bash' "$HOME/.bashrc"; then
     echo 'eval "$(starship init bash)"' >> "$HOME/.bashrc"
     echo -e "${BLUE}Added starship init to .bashrc${NC}"
 fi
+
+if ! grep -q 'alias nv="nvim"' "$HOME/.bashrc"; then
+    echo 'alias nv="nvim"' >> "$HOME/.bashrc"
+    echo -e "${BLUE}Added nv alias to .bashrc${NC}"
+fi
