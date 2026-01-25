@@ -123,14 +123,19 @@ download_and_extract() {
 echo -e "${GREEN}>>> Installing Dependencies (Ncurses, Libevent)...${NC}"
 echo -e "${BLUE}(Note: You may see 'ldconfig: Permission denied' errors. This is normal without sudo and can be ignored.)${NC}"
 
+# Unset these to ensure clean build for dependencies
+unset CFLAGS LDFLAGS
+
 # Ncurses
 if [ -f "$LIB_DIR/pkgconfig/ncurses.pc" ] || [ -f "$LIB_DIR/libncursesw.so" ]; then
      echo -e "${BLUE}Ncurses already installed. Skipping.${NC}"
 else
     NCURSES_VER="6.4"
+    rm -rf "$TMP_DIR/ncurses-${NCURSES_VER}" # Ensure clean build dir
     download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}.tar.gz"
     cd "$TMP_DIR/ncurses-${NCURSES_VER}"
-    ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-widec --enable-pc-files --with-pkg-config-libdir="$LIB_DIR/pkgconfig" > /dev/null
+    # Simplified config matching user's success
+    ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-widec > /dev/null
     make -j$(nproc) > /dev/null
     make install > /dev/null 2>&1 || true # Suppress ldconfig noise
 fi
