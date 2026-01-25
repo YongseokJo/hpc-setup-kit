@@ -50,6 +50,7 @@ rm -f "$HOME/.config/starship.toml"
 rm -rf "$HOME/.local/share/nvim"
 rm -rf "$HOME/.tmux"
 rm -rf "$HOME/.fzf"
+rm -rf "$HOME/opt/nvim" # User specified path
 
 # Remove Libs (Optional, but ensures clean link)
 # rm -f "$LIB_DIR"/libevent* "$LIB_DIR"/libncurses* 
@@ -63,9 +64,16 @@ export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig"
 export PATH="$BIN_DIR:$PATH"
 export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
 
+# 2.0. SETUP MODULES (HPC Environment)
+# ------------------------------------------------------------------------------
+if type module &> /dev/null; then
+    echo -e "${YELLOW}Attempting to load modules: gcc cmake ninja${NC}"
+    module load gcc cmake ninja 2>/dev/null || echo -e "${YELLOW}Some modules failed to load, checking PATH...${NC}"
+fi
+
 # 2.1. CHECK DEPENDENCIES
 # ------------------------------------------------------------------------------
-required_cmds="gcc make curl tar git pkg-config"
+required_cmds="gcc make curl tar git pkg-config cmake ninja"
 missing_cmds=""
 for cmd in $required_cmds; do
     if ! command -v $cmd &> /dev/null; then
@@ -133,10 +141,12 @@ make install > /dev/null 2>&1 || true
 # 5. INSTALL TMUX
 # ------------------------------------------------------------------------------
 echo -e "${GREEN}>>> Installing Tmux...${NC}"
-TMUX_VER="3.4"
+TMUX_VER="3.6a"
 download_and_extract "https://github.com/tmux/tmux/releases/download/${TMUX_VER}/tmux-${TMUX_VER}.tar.gz"
 cd "$SRC_DIR/tmux-${TMUX_VER}"
-./configure --prefix="$INSTALL_PREFIX" CFLAGS="-I$INCLUDE_DIR -I$INCLUDE_DIR/ncurses" LDFLAGS="-L$LIB_DIR -Wl,-rpath,$LIB_DIR" > /dev/null
+# User requested: ./configure CFLAGS="-I$MY_LOCAL/include" LDFLAGS="-L$MY_LOCAL/lib" --prefix=$MY_LOCAL
+# We map $MY_LOCAL to $INSTALL_PREFIX
+./configure CFLAGS="-I$INSTALL_PREFIX/include -I$INSTALL_PREFIX/include/ncurses" LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib" --prefix="$INSTALL_PREFIX" > /dev/null
 make -j$(nproc) > /dev/null
 make install > /dev/null
 
@@ -144,22 +154,19 @@ make install > /dev/null
 # ------------------------------------------------------------------------------
 echo -e "${GREEN}>>> Installing Binaries (Neovim, Ripgrep, Lazygit)...${NC}"
 
-# Neovim
+# Neovim (Build from Source)
+echo -e "${GREEN}>>> Building Neovim from source...${NC}"
 cd "$SRC_DIR"
-NVIM_ARCHIVE="nvim-linux64.tar.gz"
-if [ -f "$NVIM_ARCHIVE" ] && ! tar -tf "$NVIM_ARCHIVE" &>/dev/null; then
-    echo -e "${RED}Invalid Neovim archive found. Deleting...${NC}"
-    rm -f "$NVIM_ARCHIVE"
+if [ -d "neovim" ]; then
+    rm -rf neovim
 fi
+git clone https://github.com/neovim/neovim
+cd neovim
+make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim"
+make install
 
-if [ ! -f "$NVIM_ARCHIVE" ]; then
-    echo -e "${YELLOW}Downloading Neovim...${NC}"
-    curl -L --fail -O "https://github.com/neovim/neovim/releases/download/stable/$NVIM_ARCHIVE"
-fi
-tar -xf "$NVIM_ARCHIVE"
-cp -r nvim-linux64/bin/nvim "$BIN_DIR/"
-cp -r nvim-linux64/lib/* "$LIB_DIR/" 2>/dev/null || true
-cp -r nvim-linux64/share/* "$INSTALL_PREFIX/share/" 2>/dev/null || true
+# Symlink to BIN_DIR for consistency with the rest of this script
+ln -sf "$HOME/opt/nvim/bin/nvim" "$BIN_DIR/nvim"
 
 # Ripgrep
 RG_VER="14.1.0"
@@ -242,6 +249,7 @@ git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
 # Neovim Plugins (Lazy.nvim)
 echo -e "${GREEN}>>> Syncing Neovim plugins...${NC}"
+# Use the BIN_DIR symlink which points to the new install
 "$BIN_DIR/nvim" --headless "+Lazy! sync" +qa
 
 # 11. FINALE
@@ -250,6 +258,12 @@ echo -e "${GREEN}======================================================${NC}"
 echo -e "${GREEN} CLEAN INSTALLATION COMPLETE! ${NC}"
 echo -e "${GREEN}======================================================${NC}"
 echo -e "1. Binaries are in: ${YELLOW}$BIN_DIR${NC}"
-echo -e "2. Configs restored to: ${YELLOW}$HOME/.config${NC}"
-echo -e "3. Please ensure ${YELLOW}$BIN_DIR${NC} is in your PATH."
-echo -e "   (Add 'export PATH=$BIN_DIR:\$PATH' to your .bashrc)"
+echo -e "2. Neovim installed to: ${YELLOW}$HOME/opt/nvim${NC}"
+echo -e "3. Configs restored to: ${YELLOW}$HOME/.config${NC}"
+echo -e "4. Please ensure your PATH is updated:"
+echo -e "   ${YELLOW}export PATH=\"$HOME/opt/nvim/bin:$BIN_DIR:\$PATH\"${NC}"
+echo -e "   (Add this to your .bashrc)"
+# Automatically append if user requested, but script convention is just to echo.
+# However, user explicitly said "echo ... >> .bashrc". I'll do it.
+echo 'export PATH="$HOME/opt/nvim/bin:$PATH"' >> "$HOME/.bashrc"
+echo -e "${BLUE}Added $HOME/opt/nvim/bin to .bashrc${NC}"
