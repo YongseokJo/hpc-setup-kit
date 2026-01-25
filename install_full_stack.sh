@@ -84,11 +84,27 @@ fi
 download_and_extract() {
     local url=$1
     local filename=$(basename "$url")
-    echo -e "${YELLOW}Downloading $filename...${NC}"
+    echo -e "${YELLOW}Processing $filename...${NC}"
     cd "$SRC_DIR"
-    if [ ! -f "$filename" ]; then
-        curl -L -O "$url"
+    
+    # Check if file exists and is a valid tarball
+    if [ -f "$filename" ]; then
+        if ! tar -tf "$filename" &>/dev/null; then
+            echo -e "${RED}File $filename exists but is invalid/corrupted. Deleting...${NC}"
+            rm -f "$filename"
+        else
+            echo -e "${BLUE}File $filename already exists and is valid. Skipping download.${NC}"
+        fi
     fi
+
+    if [ ! -f "$filename" ]; then
+        echo -e "${YELLOW}Downloading $filename...${NC}"
+        if ! curl -L --fail -O "$url"; then
+            echo -e "${RED}Download failed for $url${NC}"
+            return 1
+        fi
+    fi
+    
     echo -e "${YELLOW}Extracting $filename...${NC}"
     tar -xf "$filename"
 }
@@ -96,6 +112,7 @@ download_and_extract() {
 # 4. INSTALL DEPENDENCIES (Ncurses, Libevent)
 # ------------------------------------------------------------------------------
 echo -e "${GREEN}>>> Installing Dependencies (Ncurses, Libevent)...${NC}"
+echo -e "${BLUE}(Note: You may see 'ldconfig: Permission denied' errors. This is normal without sudo and can be ignored.)${NC}"
 
 # Ncurses
 NCURSES_VER="6.4"
@@ -103,7 +120,7 @@ download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}
 cd "$SRC_DIR/ncurses-${NCURSES_VER}"
 ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-pc-files --with-pkg-config-libdir="$LIB_DIR/pkgconfig" > /dev/null
 make -j$(nproc) > /dev/null
-make install > /dev/null
+make install > /dev/null 2>&1 || true # Suppress ldconfig noise
 
 # Libevent
 LIBEVENT_VER="2.1.12-stable"
@@ -111,7 +128,7 @@ download_and_extract "https://github.com/libevent/libevent/releases/download/rel
 cd "$SRC_DIR/libevent-${LIBEVENT_VER}"
 ./configure --prefix="$INSTALL_PREFIX" > /dev/null
 make -j$(nproc) > /dev/null
-make install > /dev/null
+make install > /dev/null 2>&1 || true
 
 # 5. INSTALL TMUX
 # ------------------------------------------------------------------------------
@@ -129,20 +146,35 @@ echo -e "${GREEN}>>> Installing Binaries (Neovim, Ripgrep, Lazygit)...${NC}"
 
 # Neovim
 cd "$SRC_DIR"
-if [ ! -f "nvim-linux64.tar.gz" ]; then
-    curl -L -O "https://github.com/neovim/neovim/releases/download/stable/nvim-linux64.tar.gz"
+NVIM_ARCHIVE="nvim-linux64.tar.gz"
+if [ -f "$NVIM_ARCHIVE" ] && ! tar -tf "$NVIM_ARCHIVE" &>/dev/null; then
+    echo -e "${RED}Invalid Neovim archive found. Deleting...${NC}"
+    rm -f "$NVIM_ARCHIVE"
 fi
-tar -xf nvim-linux64.tar.gz
+
+if [ ! -f "$NVIM_ARCHIVE" ]; then
+    echo -e "${YELLOW}Downloading Neovim...${NC}"
+    curl -L --fail -O "https://github.com/neovim/neovim/releases/download/stable/$NVIM_ARCHIVE"
+fi
+tar -xf "$NVIM_ARCHIVE"
 cp -r nvim-linux64/bin/nvim "$BIN_DIR/"
 cp -r nvim-linux64/lib/* "$LIB_DIR/" 2>/dev/null || true
 cp -r nvim-linux64/share/* "$INSTALL_PREFIX/share/" 2>/dev/null || true
 
 # Ripgrep
 RG_VER="14.1.0"
-if [ ! -f "ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz" ]; then
-    curl -L -O "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VER}/ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz"
+RG_ARCHIVE="ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz"
+
+if [ -f "$RG_ARCHIVE" ] && ! tar -tf "$RG_ARCHIVE" &>/dev/null; then
+    echo -e "${RED}Invalid Ripgrep archive found. Deleting...${NC}"
+    rm -f "$RG_ARCHIVE"
 fi
-tar -xf "ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz"
+
+if [ ! -f "$RG_ARCHIVE" ]; then
+    echo -e "${YELLOW}Downloading Ripgrep...${NC}"
+    curl -L --fail -O "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VER}/$RG_ARCHIVE"
+fi
+tar -xf "$RG_ARCHIVE"
 cp "ripgrep-${RG_VER}-x86_64-unknown-linux-musl/rg" "$BIN_DIR/"
 
 # Lazygit
