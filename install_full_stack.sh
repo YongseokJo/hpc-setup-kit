@@ -68,12 +68,13 @@ export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
 # ------------------------------------------------------------------------------
 if type module &> /dev/null; then
     echo -e "${YELLOW}Attempting to load modules: gcc cmake ninja${NC}"
-    module load gcc cmake ninja 2>/dev/null || echo -e "${YELLOW}Some modules failed to load, checking PATH...${NC}"
+    # Try loading ninja if available, but don't fail if not
+    module load gcc cmake ninja 2>/dev/null || module load gcc cmake 2>/dev/null || echo -e "${YELLOW}Some modules failed to load, checking PATH...${NC}"
 fi
 
 # 2.1. CHECK DEPENDENCIES
 # ------------------------------------------------------------------------------
-required_cmds="gcc make curl tar git pkg-config cmake ninja"
+required_cmds="gcc make curl tar git pkg-config cmake"
 missing_cmds=""
 for cmd in $required_cmds; do
     if ! command -v $cmd &> /dev/null; then
@@ -177,7 +178,15 @@ else
     fi
     git clone https://github.com/neovim/neovim
     cd neovim
-    make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim"
+    
+    # Check if ninja is available, otherwise force Unix Makefiles
+    CMAKE_EXTRA_FLAGS=""
+    if ! command -v ninja &> /dev/null; then
+        echo -e "${YELLOW}Ninja not found. Configuring CMake to use Unix Makefiles...${NC}"
+        CMAKE_EXTRA_FLAGS='CMAKE_GENERATOR="Unix Makefiles"'
+    fi
+
+    make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim" $CMAKE_EXTRA_FLAGS
     make install
 fi
 
