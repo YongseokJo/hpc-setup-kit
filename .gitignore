@@ -12,3 +12,7 @@ rclone/rclone.config
 .vim/bundle/
 rclone/rclone.conf
 rclone/rclone
+
+# Downloads and temporary build files
+tmp/
+src/

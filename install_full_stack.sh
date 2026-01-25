@@ -17,7 +17,7 @@ BIN_DIR="$INSTALL_PREFIX/bin"
 LIB_DIR="$INSTALL_PREFIX/lib"
 INCLUDE_DIR="$INSTALL_PREFIX/include"
 MAN_DIR="$INSTALL_PREFIX/share/man"
-SRC_DIR="$KIT_ROOT/src" # Keep sources in the kit directory to save download time
+TMP_DIR="$KIT_ROOT/tmp" # Downloads and build artifacts
 
 CONFIG_SRC="$KIT_ROOT/config"
 
@@ -55,7 +55,7 @@ rm -rf "$HOME/.fzf"
 # Remove Libs (Optional, but ensures clean link)
 # rm -f "$LIB_DIR"/libevent* "$LIB_DIR"/libncurses* 
 
-mkdir -p "$BIN_DIR" "$LIB_DIR" "$INCLUDE_DIR" "$MAN_DIR" "$SRC_DIR"
+mkdir -p "$BIN_DIR" "$LIB_DIR" "$INCLUDE_DIR" "$MAN_DIR" "$TMP_DIR"
 
 # Export paths for compilation
 export CFLAGS="-I$INCLUDE_DIR"
@@ -93,7 +93,7 @@ download_and_extract() {
     local url=$1
     local filename=$(basename "$url")
     echo -e "${YELLOW}Processing $filename...${NC}"
-    cd "$SRC_DIR"
+    cd "$TMP_DIR"
     
     # Check if file exists and is a valid tarball
     if [ -f "$filename" ]; then
@@ -128,7 +128,7 @@ if [ -f "$LIB_DIR/pkgconfig/ncurses.pc" ]; then
 else
     NCURSES_VER="6.4"
     download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}.tar.gz"
-    cd "$SRC_DIR/ncurses-${NCURSES_VER}"
+    cd "$TMP_DIR/ncurses-${NCURSES_VER}"
     ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-pc-files --with-pkg-config-libdir="$LIB_DIR/pkgconfig" > /dev/null
     make -j$(nproc) > /dev/null
     make install > /dev/null 2>&1 || true # Suppress ldconfig noise
@@ -140,7 +140,7 @@ if [ -f "$LIB_DIR/lib/libevent.so" ] || [ -f "$LIB_DIR/libevent.so" ] || [ -f "$
 else
     LIBEVENT_VER="2.1.12-stable"
     download_and_extract "https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VER}/libevent-${LIBEVENT_VER}.tar.gz"
-    cd "$SRC_DIR/libevent-${LIBEVENT_VER}"
+    cd "$TMP_DIR/libevent-${LIBEVENT_VER}"
     ./configure --prefix="$INSTALL_PREFIX" > /dev/null
     make -j$(nproc) > /dev/null
     make install > /dev/null 2>&1 || true
@@ -154,7 +154,7 @@ else
     echo -e "${GREEN}>>> Installing Tmux...${NC}"
     TMUX_VER="3.6a"
     download_and_extract "https://github.com/tmux/tmux/releases/download/${TMUX_VER}/tmux-${TMUX_VER}.tar.gz"
-    cd "$SRC_DIR/tmux-${TMUX_VER}"
+    cd "$TMP_DIR/tmux-${TMUX_VER}"
     # User requested: ./configure CFLAGS="-I$MY_LOCAL/include" LDFLAGS="-L$MY_LOCAL/lib" --prefix=$MY_LOCAL
     # We map $MY_LOCAL to $INSTALL_PREFIX
     ./configure CFLAGS="-I$INSTALL_PREFIX/include -I$INSTALL_PREFIX/include/ncurses" LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib" --prefix="$INSTALL_PREFIX" > /dev/null
@@ -171,7 +171,7 @@ if [ -x "$HOME/opt/nvim/bin/nvim" ]; then
     echo -e "${BLUE}Neovim already installed at $HOME/opt/nvim. Skipping build.${NC}"
 else
     echo -e "${GREEN}>>> Building Neovim from source...${NC}"
-    cd "$SRC_DIR"
+    cd "$TMP_DIR"
     if [ -d "neovim" ]; then
         rm -rf neovim
     fi
@@ -287,7 +287,7 @@ if [ -x "$BIN_DIR/jq" ]; then
 else
     echo -e "${GREEN}>>> Installing Jq...${NC}"
     JQ_VER="1.8.1"
-    cd "$SRC_DIR"
+    cd "$TMP_DIR"
     if [ ! -f "jq-linux64" ]; then
         curl -L --fail -o jq-linux64 "https://github.com/jqlang/jq/releases/download/jq-${JQ_VER}/jq-linux-amd64"
     fi
