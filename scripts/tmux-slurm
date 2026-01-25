@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Prints: SLURM R:2 PD:1 (or nothing if Slurm not available)
+
+command -v squeue >/dev/null 2>&1 || exit 0
+
+# Count by state (R=RUNNING, PD=PENDING)
+out="$(squeue -h -u "$USER" -o "%T" 2>/dev/null | awk '
+  $1=="RUNNING"{r++}
+  $1=="PENDING"{pd++}
+  END{
+    if(r+pd==0){exit}
+    printf("Running:%d | Pending:%d", r, pd)
+  }')"
+
+[[ -n "$out" ]] && echo "$out"
+

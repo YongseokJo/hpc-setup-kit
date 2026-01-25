@@ -39,7 +39,7 @@ sleep 2
 echo -e "${RED}>>> Cleaning up old configurations...${NC}"
 
 # Remove Binaries (SKIPPED: User wants to keep binaries if they exist)
-# rm -f "$BIN_DIR/nvim" "$BIN_DIR/tmux" "$BIN_DIR/starship" "$BIN_DIR/rg" "$BIN_DIR/lazygit" "$BIN_DIR/fzf"
+# rm -f "$BIN_DIR/nvim" "$BIN_DIR/tmux" "$BIN_DIR/starship" "$BIN_DIR/rg" "$BIN_DIR/lazygit" "$BIN_DIR/fzf" "$BIN_DIR/tmux-slurm"
 
 # Remove Configs
 rm -rf "$HOME/.config/nvim"
@@ -269,6 +269,14 @@ else
     echo -e "${YELLOW}Warning: No nvim config in kit!${NC}"
 fi
 
+# 9.1. INSTALL UTILITY SCRIPTS
+# ------------------------------------------------------------------------------
+echo -e "${GREEN}>>> Installing utility scripts...${NC}"
+if [ -f "$KIT_ROOT/scripts/tmux-slurm" ]; then
+    cp "$KIT_ROOT/scripts/tmux-slurm" "$BIN_DIR/tmux-slurm"
+    chmod +x "$BIN_DIR/tmux-slurm"
+fi
+
 # 10. POST-INSTALL SETUP (Plugins)
 # ------------------------------------------------------------------------------
 echo -e "${GREEN}>>> Setting up Plugins...${NC}"
@@ -299,3 +307,8 @@ echo -e "   (Add this to your .bashrc)"
 # However, user explicitly said "echo ... >> .bashrc". I'll do it.
 echo 'export PATH="$HOME/opt/nvim/bin:$PATH"' >> "$HOME/.bashrc"
 echo -e "${BLUE}Added $HOME/opt/nvim/bin to .bashrc${NC}"
+
+if ! grep -q 'starship init bash' "$HOME/.bashrc"; then
+    echo 'eval "$(starship init bash)"' >> "$HOME/.bashrc"
+    echo -e "${BLUE}Added starship init to .bashrc${NC}"
+fi
