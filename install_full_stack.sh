@@ -58,10 +58,26 @@ mkdir -p "$BIN_DIR" "$LIB_DIR" "$INCLUDE_DIR" "$MAN_DIR" "$SRC_DIR"
 
 # Export paths for compilation
 export CFLAGS="-I$INCLUDE_DIR"
-export LDFLAGS="-L$LIB_DIR"
+export LDFLAGS="-L$LIB_DIR -Wl,-rpath,$LIB_DIR"
 export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig"
 export PATH="$BIN_DIR:$PATH"
 export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
+
+# 2.1. CHECK DEPENDENCIES
+# ------------------------------------------------------------------------------
+required_cmds="gcc make curl tar git pkg-config"
+missing_cmds=""
+for cmd in $required_cmds; do
+    if ! command -v $cmd &> /dev/null; then
+        missing_cmds="$missing_cmds $cmd"
+    fi
+done
+
+if [ -n "$missing_cmds" ]; then
+    echo -e "${RED}Error: Missing required commands:${YELLOW}$missing_cmds${NC}"
+    echo -e "${RED}Since you don't have sudo, these must be available in your environment modules or installed by an admin.${NC}"
+    exit 1
+fi
 
 # 3. HELPER FUNCTIONS
 # ------------------------------------------------------------------------------
@@ -103,7 +119,7 @@ echo -e "${GREEN}>>> Installing Tmux...${NC}"
 TMUX_VER="3.4"
 download_and_extract "https://github.com/tmux/tmux/releases/download/${TMUX_VER}/tmux-${TMUX_VER}.tar.gz"
 cd "$SRC_DIR/tmux-${TMUX_VER}"
-./configure --prefix="$INSTALL_PREFIX" CFLAGS="-I$INCLUDE_DIR -I$INCLUDE_DIR/ncurses" LDFLAGS="-L$LIB_DIR" > /dev/null
+./configure --prefix="$INSTALL_PREFIX" CFLAGS="-I$INCLUDE_DIR -I$INCLUDE_DIR/ncurses" LDFLAGS="-L$LIB_DIR -Wl,-rpath,$LIB_DIR" > /dev/null
 make -j$(nproc) > /dev/null
 make install > /dev/null
 
@@ -130,11 +146,20 @@ tar -xf "ripgrep-${RG_VER}-x86_64-unknown-linux-musl.tar.gz"
 cp "ripgrep-${RG_VER}-x86_64-unknown-linux-musl/rg" "$BIN_DIR/"
 
 # Lazygit
-LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
-if [ ! -f "lazygit.tar.gz" ]; then
-    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+echo -e "${GREEN}>>> Installing Lazygit...${NC}"
+LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | sed -n 's/.*"tag_name": "v\([^"]*\)".*/\1/p' | head -n 1)
+
+if [ -z "$LAZYGIT_VERSION" ]; then
+    echo -e "${YELLOW}Could not detect latest Lazygit version. Defaulting to 0.40.2${NC}"
+    LAZYGIT_VERSION="0.40.2"
 fi
-tar xf lazygit.tar.gz lazygit
+
+echo -e "Detected Lazygit version: ${LAZYGIT_VERSION}"
+
+if [ ! -f "lazygit.tar.gz" ]; then
+    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+fi
+tar xf lazygit.tar.gz
 mv lazygit "$BIN_DIR/"
 
 # 7. INSTALL FZF
