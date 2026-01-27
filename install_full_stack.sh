@@ -464,6 +464,12 @@ if [ -f "$KIT_ROOT/scripts/tmux-slurm" ]; then
     cp "$KIT_ROOT/scripts/tmux-slurm" "$BIN_DIR/tmux-slurm"
     chmod +x "$BIN_DIR/tmux-slurm"
 fi
+if [ -f "$KIT_ROOT/scripts/slurm_free.sh" ]; then
+    ln -sf "$KIT_ROOT/scripts/slurm_free.sh" "$BIN_DIR/slurm_free"
+fi
+if [ -f "$KIT_ROOT/scripts/slurm_snapshot.sh" ]; then
+    ln -sf "$KIT_ROOT/scripts/slurm_snapshot.sh" "$BIN_DIR/slurm_snapshot"
+fi
 
 # 10. POST-INSTALL SETUP (Plugins)
 # ------------------------------------------------------------------------------
@@ -496,17 +502,89 @@ echo -e "   (Add this to your .bashrc)"
 echo 'export PATH="$HOME/opt/nvim/bin:$PATH"' >> "$HOME/.bashrc"
 echo -e "${BLUE}Added $HOME/opt/nvim/bin to .bashrc${NC}"
 
-if ! grep -q 'starship init bash' "$HOME/.bashrc"; then
-    echo 'eval "$(starship init bash)"' >> "$HOME/.bashrc"
+# 11.1. UPDATE .BASHRC (IDEMPOTENT)
+# ------------------------------------------------------------------------------
+BASHRC="$HOME/.bashrc"
+touch "$BASHRC"
+append_line_if_missing() {
+    local line="$1"
+    local file="$2"
+    if ! grep -Fqx "$line" "$file"; then
+        echo "$line" >> "$file"
+        return 0
+    fi
+    return 1
+}
+
+if append_line_if_missing 'eval "$(starship init bash)"' "$BASHRC"; then
     echo -e "${BLUE}Added starship init to .bashrc${NC}"
 fi
 
-if ! grep -q 'zoxide init bash' "$HOME/.bashrc"; then
-    echo 'eval "$(zoxide init bash)"' >> "$HOME/.bashrc"
+if append_line_if_missing 'eval "$(zoxide init bash)"' "$BASHRC"; then
     echo -e "${BLUE}Added zoxide init to .bashrc${NC}"
 fi
 
-if ! grep -q 'alias nv="nvim"' "$HOME/.bashrc"; then
-    echo 'alias nv="nvim"' >> "$HOME/.bashrc"
+if append_line_if_missing 'alias nv="nvim"' "$BASHRC"; then
     echo -e "${BLUE}Added nv alias to .bashrc${NC}"
+fi
+
+if append_line_if_missing 'alias vi="nvim"' "$BASHRC"; then
+    echo -e "${BLUE}Added vi alias to .bashrc${NC}"
+fi
+
+if ! grep -Eq '^vie[[:space:]]*\(\)' "$BASHRC"; then
+    cat <<'EOF' >> "$BASHRC"
+
+vie () {
+  local dir f
+  dir="$(find . -maxdepth 3 -type d 2>/dev/null | sed 's|^\./||' | grep -v '^\.$' | fzf --prompt 'dir> ')" || return
+  f="$(find "./$dir" -maxdepth 3 -type f 2>/dev/null | sed "s|^\./$dir/||" | fzf --prompt 'nvim> ')" || return
+  nvim "./$dir/$f"
+}
+EOF
+    echo -e "${BLUE}Added vie helper to .bashrc${NC}"
+fi
+
+if ! grep -Eq '^vir[[:space:]]*\(\)' "$BASHRC"; then
+    cat <<'EOF' >> "$BASHRC"
+
+vir () {
+  local f
+  f="$(find . -type f -printf '%P\n' 2>/dev/null | fzf --prompt 'nvim> ')" || return
+  nvim "./$f"
+}
+EOF
+    echo -e "${BLUE}Added vir helper to .bashrc${NC}"
+fi
+
+if ! grep -Eq '^vif[[:space:]]*\(\)' "$BASHRC"; then
+    cat <<'EOF' >> "$BASHRC"
+
+vif () {
+  local f
+  f="$(find . -maxdepth 1 -type f -printf '%P\n' 2>/dev/null | fzf --prompt 'nvim> ')" || return
+  nvim "./$f"
+}
+EOF
+    echo -e "${BLUE}Added vif helper to .bashrc${NC}"
+fi
+
+if ! grep -Eq '^vifind[[:space:]]*\(\)' "$BASHRC"; then
+    cat <<'EOF' >> "$BASHRC"
+
+vifind () {  # nvfind <filename or glob>
+  local pat="${1:?usage: nvfind <name>}"
+  local matches
+  mapfile -t matches < <(find . -type f -name "$pat" -print 2>/dev/null | sed 's|^\./||')
+  if (( ${#matches[@]} == 0 )); then
+    echo "No match for: $pat" >&2
+    return 1
+  elif (( ${#matches[@]} == 1 )); then
+    nvim "${matches[0]}"
+  else
+    printf '%s\n' "${matches[@]}" | fzf --prompt 'open> ' | xargs -r nvim
+  fi
+}
+EOF
+    echo -e "${BLUE}Added vifind helper to .bashrc${NC}"
 fi
