@@ -123,3 +123,9 @@ catch /^Vim\%((\a\+)\)\=:E185/
 endtry
 
 filetype plugin indent on
+
+highlight Normal ctermbg=NONE guibg=NONE
+highlight NonText ctermbg=NONE guibg=NONE
+highlight LineNr ctermbg=NONE guibg=NONE
+highlight SignColumn ctermbg=NONE guibg=NONE
+highlight EndOfBuffer ctermbg=NONE guibg=NONE

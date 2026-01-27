@@ -235,3 +235,23 @@ require("lazy").setup({
     end,
   },
 })
+
+
+-- Also run it every time a colorscheme is loaded 
+-- (Colorschemes often override manual settings)
+local function set_transparent()
+    local highlights = {
+        "Normal", "NormalFloat", "NonText", "SignColumn", 
+        "EndOfBuffer", "MsgArea", "NormalNC",
+        "CursorLine", -- Add this!
+    }
+    for _, group in ipairs(highlights) do
+        vim.api.nvim_set_hl(0, group, { bg = "none", ctermbg = "none" })
+    end
+    
+    -- Optional: If you still want to see where the cursor is, 
+    -- add an underline instead of a background color
+    vim.api.nvim_set_hl(0, "CursorLine", { underline = true })
+end
+
+set_transparent()

@@ -82,9 +82,10 @@ esac
 # 2.0. SETUP MODULES (HPC Environment)
 # ------------------------------------------------------------------------------
 if type module &> /dev/null; then
-    echo -e "${YELLOW}Attempting to load modules: gcc cmake ninja${NC}"
-    # Try loading ninja if available, but don't fail if not
-    module load gcc cmake ninja 2>/dev/null || module load gcc cmake 2>/dev/null || echo -e "${YELLOW}Some modules failed to load, checking PATH...${NC}"
+    echo -e "${YELLOW}Attempting to load modules: gcc/11.2.0 cmake ninja${NC}"
+    # Load a specific newer GCC version - the default gcc (4.6.3) is too old and its
+    # libstdc++.so.6 lacks GLIBCXX symbols required by cmake 3.25.2
+    module load gcc/11.2.0 cmake/3.25.2 2>/dev/null || echo -e "${YELLOW}Some modules failed to load, checking PATH...${NC}"
 fi
 
 # 2.1. CHECK DEPENDENCIES
@@ -182,6 +183,14 @@ else
     fi
     make -j$(nproc) > /dev/null
     make install > /dev/null 2>&1 || true # Suppress ldconfig noise
+    # Create compatibility symlinks (ncursesw -> ncurses) for programs expecting non-wide names
+    cd "$LIB_DIR"
+    ln -sf libncursesw.so libncurses.so
+    ln -sf libncursesw.so.6 libncurses.so.6
+    ln -sf libtinfow.so libtinfo.so
+    ln -sf libtinfow.so.6 libtinfo.so.6
+    cd "$INCLUDE_DIR"
+    ln -sf ncursesw ncurses
 fi
 
 # Libevent
@@ -236,15 +245,32 @@ if [ -x "$HOME/opt/nvim/bin/nvim" ]; then
     echo -e "${BLUE}Neovim already installed at $HOME/opt/nvim. Skipping build.${NC}"
 else
     echo -e "${GREEN}>>> Building Neovim from source...${NC}"
+
+    # Verify cmake version (Neovim requires 3.13+)
+    CMAKE_VER=$(cmake --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+    CMAKE_MAJOR=$(echo "$CMAKE_VER" | cut -d. -f1)
+    CMAKE_MINOR=$(echo "$CMAKE_VER" | cut -d. -f2)
+    if [ -z "$CMAKE_MAJOR" ] || [ "$CMAKE_MAJOR" -lt 3 ] || { [ "$CMAKE_MAJOR" -eq 3 ] && [ "$CMAKE_MINOR" -lt 13 ]; }; then
+        echo -e "${RED}Error: Neovim requires CMake >= 3.13, but found version $CMAKE_VER${NC}"
+        echo -e "${YELLOW}Current cmake: $(which cmake)${NC}"
+        echo -e "${YELLOW}Try loading a newer cmake module: module load cmake/3.x${NC}"
+    fi
+
     cd "$TMP_DIR"
     if [ -d "neovim" ]; then
         rm -rf neovim
     fi
     git clone https://github.com/neovim/neovim
     cd neovim
-    
-    # Check if ninja is available, otherwise force Unix Makefiles
-    make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim"
+
+    # Use Unix Makefiles if ninja is not available
+    if command -v ninja &> /dev/null; then
+        echo -e "${BLUE}Using Ninja generator${NC}"
+        make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim"
+    else
+        echo -e "${YELLOW}Ninja not found, using Unix Makefiles${NC}"
+        make CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="$HOME/opt/nvim" CMAKE_GENERATOR="Unix Makefiles"
+    fi
     make install
 fi
 
