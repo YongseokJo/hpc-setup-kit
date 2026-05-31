@@ -10,6 +10,14 @@ set number
 inoremap kj <esc>
 set pastetoggle=<F2>
 
+" --- Truecolor (24-bit), including inside tmux ---
+if exists('+termguicolors')
+  " These let termguicolors work through tmux (tmux.conf advertises Tc).
+  let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
+  let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
+  set termguicolors
+endif
+
 " --- Search ---
 set hlsearch
 set incsearch
@@ -56,9 +64,54 @@ set foldlevel=99
 nnoremap <space> za
 
 " --- Colors / Airline ---
-colorscheme zenburn
+" Claude warm theme. Background stays transparent (follows the terminal /
+" Ghostty color); only accents + syntax are tuned to the clay/coral palette
+" shared with tmux + starship. Defined here, applied after Vundle loads.
+set background=light
+
+function! s:ClaudeColors() abort
+  " Keep the editor transparent so it adopts the terminal background.
+  highlight Normal         guibg=NONE   ctermbg=NONE
+  highlight NonText        guifg=#d8d2c4 guibg=NONE ctermbg=NONE
+  highlight EndOfBuffer    guifg=#d8d2c4 guibg=NONE ctermbg=NONE
+  highlight SignColumn     guibg=NONE   ctermbg=NONE
+  " Syntax — warm earth tones, clay for the important tokens.
+  highlight Comment        guifg=#8a8a85 gui=italic ctermfg=245
+  highlight Constant       guifg=#a87b1f ctermfg=136
+  highlight String         guifg=#5f7a2e ctermfg=64
+  highlight Number         guifg=#a87b1f ctermfg=136
+  highlight Boolean        guifg=#c15f3c ctermfg=166
+  highlight Identifier     guifg=#3d3d3a ctermfg=237
+  highlight Function       guifg=#b5654d ctermfg=131
+  highlight Statement      guifg=#c15f3c gui=bold ctermfg=166
+  highlight Keyword        guifg=#c15f3c gui=bold ctermfg=166
+  highlight Conditional    guifg=#c15f3c ctermfg=166
+  highlight Repeat         guifg=#c15f3c ctermfg=166
+  highlight Operator       guifg=#6b6b66 ctermfg=242
+  highlight PreProc        guifg=#8b4789 ctermfg=132
+  highlight Type           guifg=#2f7d8a gui=NONE ctermfg=30
+  highlight Special        guifg=#b5654d ctermfg=131
+  highlight Todo           guifg=#faf9f5 guibg=#c15f3c gui=bold
+  " UI accents.
+  highlight LineNr         guifg=#aaaaa0 guibg=NONE ctermfg=247 ctermbg=NONE
+  highlight CursorLineNr   guifg=#c15f3c gui=bold ctermfg=166
+  highlight CursorLine     gui=underline cterm=underline guibg=NONE ctermbg=NONE
+  highlight Visual         guibg=#e7d6cc guifg=NONE ctermbg=224
+  highlight Search         guifg=#3d3d3a guibg=#e7d6cc gui=bold ctermfg=237 ctermbg=224
+  highlight IncSearch      guifg=#faf9f5 guibg=#c15f3c ctermfg=231 ctermbg=166
+  highlight MatchParen     guifg=#c15f3c guibg=NONE gui=bold,underline
+  highlight Pmenu          guifg=#3d3d3a guibg=#ece7d8 ctermfg=237 ctermbg=223
+  highlight PmenuSel       guifg=#faf9f5 guibg=#c15f3c ctermfg=231 ctermbg=166
+  highlight ColorColumn    guibg=#f2efe6 ctermbg=224
+  highlight StatusLine     guifg=#faf9f5 guibg=#c15f3c gui=bold
+  highlight StatusLineNC   guifg=#6b6b66 guibg=#efece2
+  highlight VertSplit      guifg=#d8d2c4 guibg=NONE
+  highlight Folded         guifg=#6b6b66 guibg=#efece2 ctermfg=242
+  highlight Error          guifg=#faf9f5 guibg=#b83d2e
+endfunction
+
 let g:airline_powerline_fonts = 1
-let g:airline_theme='zenburn'
+let g:airline_theme='sol'
 set t_Co=256
 let g:airline#extensions#tabline#enabled = 1
 let g:airline#extensions#tabline#left_sep = ' '
@@ -116,11 +169,13 @@ Plugin 'vim-airline/vim-airline'
 Plugin 'vim-airline/vim-airline-themes'
 call vundle#end()
 
-try
-  colorscheme zenburn
-catch /^Vim\%((\a\+)\)\=:E185/
-  colorscheme default
-endtry
+" Apply the Claude theme now, and re-apply whenever a colorscheme loads
+" (e.g. a plugin sets one) so the warm accents always win.
+call s:ClaudeColors()
+augroup ClaudeTheme
+  autocmd!
+  autocmd ColorScheme * call s:ClaudeColors()
+augroup END
 
 filetype plugin indent on
 

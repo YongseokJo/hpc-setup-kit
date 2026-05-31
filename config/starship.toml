@@ -4,17 +4,18 @@ add_newline = true
 # Increase the default command timeout to 2 seconds
 command_timeout = 2000
 
-# Place this line directly under the `command_timeout` entry at the top of the file
-palette = "catppuccin_macchiato"
+# Active palette — Claude light (cream + clay). Switch back to
+# "catppuccin_macchiato" any time for the old dark look.
+palette = "claude_light"
 
 
 # Define the order and format of the information in our prompt
 format = """\
-[](fg:red)\
+[](fg:red)\
 $directory\
 ${custom.directory_separator_not_git}\
 ${custom.directory_separator_git}\
-$symbol($git_branch[](fg:lavender))\
+$symbol($git_branch[](fg:lavender))\
 $symbol( $git_commit$git_status$git_metrics$git_state)$fill$cmd_duration\
 $symbol($python[ 󰨐 ](fg:overlay2))\
 $username[ 󰨐 ](fg:overlay2)$hostname\
@@ -25,15 +26,15 @@ $character$status"""
 [fill]
 symbol = " "
 
-#
+#
 
 [character]
-#
-success_symbol = "[❱❭⟩](bold rosewater)"
-#success_symbol = "[](bold rosewater)"
-#success_symbol = "[](bold rosewater)"
-error_symbol = "[❱❭⟩](bold red bold)"
-vimcmd_symbol = "[❱❭⟩](bold mauve)" # Changes to purple when in Vim Command mode
+#
+success_symbol = "[❱❭⟩](bold rosewater)"
+#success_symbol = "[](bold rosewater)"
+#success_symbol = "[](bold rosewater)"
+error_symbol = "[❱❭⟩](bold red bold)"
+vimcmd_symbol = "[❱❭⟩](bold mauve)" # Changes to purple when in Vim Command mode
 
 [status]
 disabled = false
@@ -43,7 +44,7 @@ symbol = "󱖫"
 style = "italic red"
 
 [python]
-symbol = " "
+symbol = " "
 style = "fg:yellow bold"
 format = "[ $symbol${pyenv_prefix}($virtualenv )($version)]($style)"
 disabled = false
@@ -73,7 +74,7 @@ format = "[ $path ]($style)"
 style = "fg:text bg:surface0"
 
 [git_branch]
-symbol = " "
+symbol = " "
 format = "[ $symbol$branch(:$remote_branch) ]($style)"
 style = "fg:crust bg:lavender"
 
@@ -93,14 +94,14 @@ display_private = true
 [cmd_duration]
 min_time = 2_000
 format = "[ 󱑎 $duration ]($style)"
-style = "white"
+style = "fg:subtext0"
 
 
 # Output the current git config email address
 [custom.git_config_email]
 description = "Output the current git user's configured email address."
 command = "git config user.email"
-format = "\n[$symbol(  $output)]($style)"
+format = "\n[$symbol(  $output)]($style)"
 # Only when inside git repository
 when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
 style = "text"
@@ -109,7 +110,7 @@ style = "text"
 [custom.directory_separator_git]
 description = "Output a styled separator right after the directory when inside a git repository."
 command = ""
-format = "[](fg:surface0 bg:lavender)"
+format = "[](fg:surface0 bg:lavender)"
 # Only when inside git repository
 when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
 
@@ -117,14 +118,46 @@ when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
 [custom.directory_separator_not_git]
 description = "Output a styled separator right after the directory when NOT inside a git repository."
 command = ""
-format = "[](fg:surface0)"
+format = "[](fg:surface0)"
 # Only when NOT inside a git repository
 when = "! git rev-parse --is-inside-work-tree > /dev/null 2>&1"
 
 
 
-# Then, this `palettes` entry can go at the bottom of the TOML file
-# You may add additional palettes as desired.
+# ============================================================
+# Claude light palette — cream background, clay/ink accents.
+# Tuned so every fg reads clearly on Ghostty's #faf9f5 cream.
+# ============================================================
+[palettes.claude_light]
+rosewater = "#c15f3c"
+flamingo  = "#b5654d"
+pink      = "#b5567d"
+mauve     = "#8b4789"
+red       = "#b83d2e"
+maroon    = "#a8443a"
+peach     = "#c15f3c"
+yellow    = "#a87b1f"
+green     = "#5f7a2e"
+teal      = "#2e8b8b"
+sky       = "#3f9a9a"
+sapphire  = "#2f7d8a"
+blue      = "#2f6cc1"
+lavender  = "#cdbfe8"
+text      = "#3d3d3a"
+subtext1  = "#55554f"
+subtext0  = "#6b6b66"
+overlay2  = "#8a8a85"
+overlay1  = "#9a9a92"
+overlay0  = "#aaaaa0"
+surface2  = "#ddd6c7"
+surface1  = "#e4dfd2"
+surface0  = "#ece7d8"
+base      = "#faf9f5"
+mantle    = "#f2efe6"
+crust     = "#2b2b28"
+
+
+# Original dark palette kept for easy switch-back.
 [palettes.catppuccin_macchiato]
 rosewater = "#f4dbd6"
 flamingo = "#f0c6c6"
@@ -152,4 +185,3 @@ surface0 = "#363a4f"
 base = "#24273a"
 mantle = "#1e2030"
 crust = "#181926"
-

@@ -33,26 +33,121 @@ vim.opt.inccommand = 'split'
 vim.opt.cursorline = true
 vim.opt.scrolloff = 10
 vim.opt.termguicolors = true
+-- Claude theme follows the terminal background. Your Ghostty is cream, so
+-- default to "light". Flip this one line to "dark" if you switch Ghostty to
+-- a dark background — the warm-charcoal Claude variant will kick in.
+vim.opt.background = "light"
 
 -- Keymaps
 vim.keymap.set("i", "kj", "<Esc>", { desc = "Escape insert mode" })
 
 -- Setup Plugins
 require("lazy").setup({
-  -- Theme
+  -- Theme — Claude warm. Transparent background (adopts the terminal/Ghostty
+  -- color); only the accents + syntax are tuned to the clay/coral palette that
+  -- tmux + starship already use. "auto" => latte on a light bg, frappe on dark.
   {
     "catppuccin/nvim",
     name = "catppuccin",
     priority = 1000,
     config = function()
       require("catppuccin").setup({
-        flavour = "frappe", -- latte (light), frappe, macchiato, mocha (darkest)
+        flavour = "auto",
+        background = { light = "latte", dark = "frappe" },
+        transparent_background = true, -- editor follows the terminal background
+        show_end_of_buffer = false,
+        term_colors = true,
+        styles = {
+          comments = { "italic" },
+          keywords = { "bold" },
+        },
         color_overrides = {
-          macchiato = {
-            base = "#494d64", -- Even lighter background (Original: #24273a)
-            mantle = "#3b3f52",
-            crust = "#313543",
+          -- Light: tuned to read on Ghostty's cream (#faf9f5). Same hexes as
+          -- the claude_light palette in ~/.config/starship.toml.
+          latte = {
+            rosewater = "#c15f3c",
+            flamingo  = "#b5654d",
+            pink      = "#b5567d",
+            mauve     = "#8b4789",
+            red       = "#b83d2e",
+            maroon    = "#a8443a",
+            peach     = "#c15f3c", -- clay — keywords / accents
+            yellow    = "#a87b1f", -- ochre — types
+            green     = "#5f7a2e", -- sage — strings
+            teal      = "#2e8b8b",
+            sky       = "#3f9a9a",
+            sapphire  = "#2f7d8a",
+            blue      = "#b5654d", -- functions -> terracotta (kept warm)
+            lavender  = "#8b4789",
+            text      = "#3d3d3a",
+            subtext1  = "#55554f",
+            subtext0  = "#6b6b66",
+            overlay2  = "#8a8a85",
+            overlay1  = "#9a9a92",
+            overlay0  = "#aaaaa0",
+            surface2  = "#ddd6c7",
+            surface1  = "#e4dfd2",
+            surface0  = "#ece7d8",
+            base      = "#faf9f5",
+            mantle    = "#f2efe6",
+            crust     = "#2b2b28",
           },
+          -- Dark: warm charcoal + coral, in case you flip Ghostty to dark.
+          frappe = {
+            rosewater = "#f2d5cc",
+            flamingo  = "#e8a896",
+            pink      = "#e0a0c0",
+            mauve     = "#c98aa0",
+            red       = "#e8806a",
+            maroon    = "#e0907a",
+            peach     = "#d97757", -- coral — keywords / accents
+            yellow    = "#d9a85f", -- warm gold — types
+            green     = "#a3b86a", -- sage — strings
+            teal      = "#7fc0bd",
+            sky       = "#8fd0cd",
+            sapphire  = "#7db5c0",
+            blue      = "#e0a088", -- functions -> warm
+            lavender  = "#d2a0b0",
+            text      = "#e8e6dc",
+            subtext1  = "#cfcdc4",
+            subtext0  = "#b5b3aa",
+            overlay2  = "#8a8a82",
+            overlay1  = "#76766f",
+            overlay0  = "#62625c",
+            surface2  = "#4a4a45",
+            surface1  = "#3a3a37",
+            surface0  = "#30302e",
+            base      = "#262624",
+            mantle    = "#1f1e1d",
+            crust     = "#191817",
+          },
+        },
+        custom_highlights = function(C)
+          return {
+            ["@keyword"]       = { fg = C.peach, bold = true },
+            ["@keyword.function"] = { fg = C.peach, bold = true },
+            ["@function"]      = { fg = C.flamingo },
+            ["@function.call"] = { fg = C.flamingo },
+            ["@string"]        = { fg = C.green },
+            ["@type"]          = { fg = C.yellow },
+            ["@constant"]      = { fg = C.peach },
+            ["@number"]        = { fg = C.yellow },
+            ["@comment"]       = { fg = C.overlay2, style = { "italic" } },
+            Search             = { bg = C.surface1, fg = C.peach, bold = true },
+            IncSearch          = { bg = C.peach, fg = C.base },
+            Visual             = { bg = C.surface1 },
+            MatchParen         = { fg = C.peach, bold = true },
+            ColorColumn        = { bg = C.mantle },
+            CursorLineNr       = { fg = C.peach, bold = true },
+          }
+        end,
+        integrations = {
+          treesitter = true,
+          native_lsp = { enabled = true },
+          gitsigns = true,
+          nvimtree = true,
+          telescope = { enabled = true },
+          cmp = true,
         },
       })
       vim.cmd.colorscheme("catppuccin")

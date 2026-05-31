@@ -1,67 +1,47 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Use BASH_SOURCE when available; fall back to $0; protect dirname with --
-SELF="${BASH_SOURCE[0]:-$0}"
-REPO_DIR="$(cd "$(dirname -- "$SELF")" && pwd)"
+# Symlink all dotfiles from this kit into $HOME. Idempotent: re-running only
+# relinks what's missing or wrong, and backs up anything it replaces.
+#
+# Layout (canonical):
+#   config/tmux.conf      -> ~/.tmux.conf
+#   config/starship.toml  -> ~/.config/starship.toml
+#   config/nvim/init.lua  -> ~/.config/nvim/init.lua
+#   config/bashrc         -> ~/.bashrc
+#   config/zshrc          -> ~/.zshrc
+#   vimrc                 -> ~/.vimrc              (kept at repo root)
 
-# --- tmux ---
-if [ -f "$HOME/.tmux.conf" ] && [ ! -L "$HOME/.tmux.conf" ]; then
-  mv "$HOME/.tmux.conf" "$HOME/.tmux.conf.bak.$(date +%s)"
-fi
-ln -sf "$REPO_DIR/tmux.conf" "$HOME/.tmux.conf"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TS=$(date +%Y%m%d-%H%M%S)
 
-if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
-  git clone https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
-fi
+link () {
+  local src="$1" dst="$2"
+  if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
+    echo "ok     $dst"
+    return
+  fi
+  if [ -e "$dst" ] || [ -L "$dst" ]; then
+    echo "backup $dst -> $dst.bak.$TS"
+    mv "$dst" "$dst.bak.$TS"
+  fi
+  ln -s "$src" "$dst"
+  echo "link   $dst -> $src"
+}
 
-# --- vim ---
-if [ -f "$HOME/.vimrc" ] && [ ! -L "$HOME/.vimrc" ]; then
-  mv "$HOME/.vimrc" "$HOME/.vimrc.bak.$(date +%s)"
-fi
-ln -sf "$REPO_DIR/vimrc" "$HOME/.vimrc"
+mkdir -p "$HOME/.config"
+link "$REPO_DIR/config/tmux.conf"     "$HOME/.tmux.conf"
+link "$REPO_DIR/config/starship.toml" "$HOME/.config/starship.toml"
+mkdir -p "$HOME/.config/nvim"
+link "$REPO_DIR/config/nvim/init.lua" "$HOME/.config/nvim/init.lua"
+link "$REPO_DIR/vimrc"                "$HOME/.vimrc"
+link "$REPO_DIR/config/bashrc"        "$HOME/.bashrc"
+link "$REPO_DIR/config/zshrc"         "$HOME/.zshrc"
 
-# Bootstrap Vundle (vimrc also auto-clones it, but do it here to avoid first-run delay)
-if [ ! -d "$HOME/.vim/bundle/Vundle.vim" ]; then
-  git clone https://github.com/VundleVim/Vundle.vim "$HOME/.vim/bundle/Vundle.vim"
-fi
-
-# Ensure Zenburn present (plugin + direct colors fallback)
-if [ ! -d "$HOME/.vim/bundle/zenburn" ]; then
-  echo "[vim] Installing Zenburn colorscheme..."
-  git clone https://github.com/jnurmine/Zenburn.git "$HOME/.vim/bundle/zenburn"
-fi
-
-# Put/Link the colors file where Vim always finds it
-mkdir -p "$HOME/.vim/colors"
-if [ -f "$HOME/.vim/bundle/zenburn/colors/zenburn.vim" ]; then
-  ln -sf "$HOME/.vim/bundle/zenburn/colors/zenburn.vim" "$HOME/.vim/colors/zenburn.vim"
-fi
-
-# Non-interactive plugin install (safe if vim is headless on clusters)
-if command -v vim >/dev/null 2>&1; then
-  vim +PluginInstall +qall || true
-fi
-
-# --- shell aliases/functions (bashrc/zshrc) ---
-if [ -x "$REPO_DIR/scripts/install_shell_snippets.sh" ]; then
-  "$REPO_DIR/scripts/install_shell_snippets.sh"
-fi
-
-./setup_rclone.sh
-
-cat << 'MSG'
-Installed.
-
-tmux:
-  - Start tmux, then press:  prefix (C-j) + I  to install tmux plugins
-  - Reload: prefix + R
-
-vim:
-  - Plugins installed via Vundle; if YouCompleteMe is present:
-      cd ~/.vim/bundle/YouCompleteMe && python3 install.py --clangd-completer || true
-    (optional; skip if toolchain unavailable on the cluster)
-
-shell:
-  - Aliases/functions added between markers in ~/.bashrc and/or ~/.zshrc
-MSG
+echo
+echo "Done. Open a new shell / tmux session."
+echo "  - nvim plugins:  lazy.nvim installs on first launch"
+echo "  - vim plugins:   vim +PluginInstall +qall  (Vundle auto-clones)"
+echo "  - tmux plugins:  prefix (C-j) then I       (TPM)"
+echo "  - Ghostty theme (LOCAL machine): copy ghostty-claude.config"
+echo "                   into your Ghostty config and reload."

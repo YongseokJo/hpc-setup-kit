@@ -1,0 +1,89 @@
+#
+# .zshrc is sourced in interactive shells.
+# It should contain commands to set up aliases,
+# functions, options, key bindings, etc.
+#
+
+autoload -U compinit
+compinit
+
+#allow tab completion in the middle of a word
+setopt COMPLETE_IN_WORD
+
+## keep background processes at full speed
+#setopt NOBGNICE
+## restart running processes on exit
+#setopt HUP
+
+## history
+#setopt APPEND_HISTORY
+## for sharing history between zsh processes
+#setopt INC_APPEND_HISTORY
+#setopt SHARE_HISTORY
+
+## never ever beep ever
+#setopt NO_BEEP
+
+## automatically decide when to page a list of completions
+#LISTMAX=0
+
+## disable mail checking
+#MAILCHECK=0
+
+# autoload -U colors
+#colors
+
+# >>> tmux-vim-portable aliases >>>
+### Alias
+alias down_popeye="scp yjo10@popeye:~/ceph/transfer/* ~/ceph/transfer"
+alias up_popeye="scp ~/ceph/transfer/* yjo10@popeye:~/ceph/transfer "
+alias popeye="ssh popeye"
+alias qs="squeue -u yjo10"
+alias ll="ls -alrth"
+alias psal="ps --user=yjo10 -ux"
+alias venv="source ~/pyenv/venv/bin/activate"
+alias newvenv="source ~/pyenv/newvenv/bin/activate"
+alias torch="source ~/pyenv/torch/bin/activate"
+alias nlp="source ~/pyenv/nlp/bin/activate"
+alias sbi="source ~/pyenv/sbi/bin/activate"
+alias yt_plot="source ~/pyenv/yt_plot/bin/activate"
+alias venv_sbi="source ~/pyenv/venv_sbi/bin/activate"
+alias lightning="source ~/pyenv/lightning/bin/activate"
+alias mine="source ~/pyenv/mine/bin/activate"
+alias MI="source ~/pyenv/MI/bin/activate"
+alias tt="tmux attach -t 0"
+alias reload_bash="source ~/.bash_profile"
+alias gpu_check="~carriero/bin/gpuUsage -t 4 -u yjo10"
+alias rr="ssh rustyamd2"
+# alias sr="sbatch run.sh"
+
+# sbatch helper: remember last run script per directory
+function sr {
+  local last_file_path=".last_run_code"
+  if [ $# -eq 1 ]; then
+    echo "$1" > "$last_file_path"
+    sbatch "$1"
+  elif [ -f "$last_file_path" ]; then
+    local last_file
+    last_file=$(cat "$last_file_path")
+    if [ -f "$last_file" ]; then
+      sbatch "$last_file"
+      echo "$last_file"
+    else
+      echo "Error: Previously saved file '$last_file' no longer exists in this directory."
+    fi
+  else
+    echo "Usage: sr <filename>"
+    echo "Or run without arguments to re-run the last script in this directory."
+  fi
+}
+
+# Bash-only keybindings (guarded)
+if [ -n "${BASH_VERSION:-}" ]; then
+  set -o vi
+	bind '"kj": vi-movement-mode'
+	bind '"^z": run-fg-editor'
+	bind '"\e[A": history-search-backward'
+	bind '"\e[B": history-search-forward'
+fi
+# <<< tmux-vim-portable aliases <<<

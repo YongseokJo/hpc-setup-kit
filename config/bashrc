@@ -1,0 +1,229 @@
+# .bashrc
+
+case $- in
+  *i*) ;;
+  *) return ;;
+esac
+
+
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+	. /etc/bashrc
+fi
+
+# User specific environment
+if ! [[ "$PATH" =~ "$HOME/.local/bin:$HOME/bin:" ]]
+then
+    PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+fi
+export PATH
+
+# Uncomment the following line if you don't like systemctl's auto-paging feature:
+# export SYSTEMD_PAGER=
+
+# User specific aliases and functions
+alias ll='ls -al'
+
+# >>> tmux-vim-portable aliases >>>
+### Alias
+alias down_popeye="scp yjo10@popeye:~/ceph/transfer/* ~/ceph/transfer"
+alias up_popeye="scp ~/ceph/transfer/* yjo10@popeye:~/ceph/transfer "
+alias popeye="ssh popeye"
+alias qs="squeue -u gkerex"
+alias ll="ls -alrth"
+alias psal="ps --user=gkerex -ux"
+alias venv="source ~/pyenv/venv/bin/activate"
+alias newvenv="source ~/pyenv/newvenv/bin/activate"
+alias torch="source ~/pyenv/torch/bin/activate"
+alias nlp="source ~/pyenv/nlp/bin/activate"
+alias sbi="source ~/pyenv/sbi/bin/activate"
+alias yt_plot="source ~/pyenv/yt_plot/bin/activate"
+alias venv_sbi="source ~/pyenv/venv_sbi/bin/activate"
+alias lightning="source ~/pyenv/lightning/bin/activate"
+alias mine="source ~/pyenv/mine/bin/activate"
+alias MI="source ~/pyenv/MI/bin/activate"
+alias tt="tmux attach -t 0"
+alias reload_bash="source ~/.bash_profile"
+alias gpu_check="~carriero/bin/gpuUsage -t 4 -u gkerex"
+alias rr="ssh dt-login02"
+alias cd_p1="cd /projects/benb/gkerex"
+alias cd_p2="cd /projects/bfpt/gkerex"
+alias cd_w1="cd /work/nvme/benb/gkerex"
+alias cd_w2="cd /work/nvme/bfpt/gkerex"
+alias cd_w3="cd /work/hdd/benb/gkerex"
+alias cd_w4="cd /work/hdd/bfpt/gkerex"
+alias sb="sbatch"
+alias tm="turm -u 'gkerex'"
+alias sj="./submit_job.sh"
+alias int_gpu="srun \
+	--nodes=1 \
+	--ntasks-per-node=1 \
+	--cpus-per-task=6 \
+	--partition=gpuA40x4 \
+	--gpus-per-node=1 \
+	--account=bfpt-delta-gpu \
+	--time=48:00:00 \
+	--constraint="scratch" \
+	--job-name=interact \
+	--pty /bin/bash"
+alias cld='claude --dangerously-skip-permissions'
+
+	#--partition=gpuA100x4 \
+alias vi="nvim"
+# alias sr="sbatch run.sh"
+
+# sbatch helper: remember last run script per directory
+function sr {
+  local last_file_path=".last_run_code"
+  if [ $# -eq 1 ]; then
+    echo "$1" > "$last_file_path"
+    sbatch "$1"
+  elif [ -f "$last_file_path" ]; then
+    local last_file
+    last_file=$(cat "$last_file_path")
+    if [ -f "$last_file" ]; then
+      sbatch "$last_file"
+      echo "$last_file"
+    else
+      echo "Error: Previously saved file '$last_file' no longer exists in this directory."
+    fi
+  else
+    echo "Usage: sr <filename>"
+    echo "Or run without arguments to re-run the last script in this directory."
+  fi
+}
+
+# Bash-only keybindings (guarded)
+if [ -n "${BASH_VERSION:-}" ]; then
+  set -o vi
+	bind '"kj": vi-movement-mode'
+	bind '"^z": run-fg-editor'
+	bind '"\e[A": history-search-backward'
+	bind '"\e[B": history-search-forward'
+fi
+# <<< tmux-vim-portable aliases <<<
+
+eval "$(~/pyenv/torch/bin/turm completion bash)"
+
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+
+
+
+eval "$(starship init bash)"
+
+export PATH="$HOME/opt/nvim/bin:$PATH"
+eval "$(zoxide init bash)"
+eval "$(zoxide init bash --cmd cd)"
+alias nv="nvim"
+nvm use 22
+export PATH="$HOME/opt/nvim/bin:$PATH"
+
+vie () {
+  local dir f
+  dir="$(find . -maxdepth 3 -type d 2>/dev/null | sed 's|^\./||' | grep -v '^\.$' | fzf --prompt 'dir> ')" || return
+  f="$(find "./$dir" -maxdepth 3 -type f 2>/dev/null | sed "s|^\./$dir/||" | fzf --prompt 'nvim> ')" || return
+  nvim "./$dir/$f"
+}
+
+vir () {
+  local f
+  f="$(find . -type f -printf '%P\n' 2>/dev/null | fzf --prompt 'nvim> ')" || return
+  nvim "./$f"
+}
+
+vif () {
+  local f
+  f="$(find . -maxdepth 1 -type f -printf '%P\n' 2>/dev/null | fzf --prompt 'nvim> ')" || return
+  nvim "./$f"
+}
+
+vifind () {  # nvfind <filename or glob>
+  local pat="${1:?usage: nvfind <name>}"
+  local matches
+  mapfile -t matches < <(find . -type f -name "$pat" -print 2>/dev/null | sed 's|^\./||')
+  if (( ${#matches[@]} == 0 )); then
+    echo "No match for: $pat" >&2
+    return 1
+  elif (( ${#matches[@]} == 1 )); then
+    nvim "${matches[0]}"
+  else
+    printf '%s\n' "${matches[@]}" | fzf --prompt 'open> ' | xargs -r nvim
+  fi
+}
+
+fscancel() {
+  # Usage: fscancel [scancel_args...]
+  # Examples:
+  #   fscancel              (cancel selected jobs)
+  #   fscancel --signal=KILL (send signal)
+  command -v squeue >/dev/null 2>&1 || { echo "squeue not found"; return 1; }
+  command -v scancel >/dev/null 2>&1 || { echo "scancel not found"; return 1; }
+
+  local extra_args=("$@")
+  local selected jobids
+
+  selected=$(
+    squeue -u "$USER" -o "%.18i %.9P %.25j %.8T %.10M %.6D %R" -h \
+    | fzf -m --prompt="scancel> " \
+          --header="TAB=multi-select  ENTER=scancel  CTRL-R=reload" \
+          --preview='jid=$(echo {} | awk "{print \$1}"); scontrol show job "$jid" | sed -n "1,120p"' \
+          --bind="ctrl-r:reload(squeue -u $USER -o '%.18i %.9P %.25j %.8T %.10M %.6D %R' -h)" \
+  ) || return
+
+  jobids=$(echo "$selected" | awk '{print $1}' | tr '\n' ' ')
+  [[ -n "${jobids// /}" ]] || return
+
+  echo "About to run: scancel ${extra_args[*]} $jobids"
+  read -r -p "Proceed? [y/N] " ans
+  [[ "$ans" == "y" || "$ans" == "Y" ]] || { echo "Canceled."; return; }
+
+  scancel "${extra_args[@]}" $jobids
+}
+
+
+# Pick job(s) via fzf and print jobid(s), one per line
+sjid_pick() {
+  command -v squeue >/dev/null 2>&1 || { echo "squeue not found"; return 1; }
+
+  local selected
+  selected=$(
+    squeue -u "$USER" -o "%.18i %.9P %.25j %.8T %.10M %.6D %R" -h \
+    | fzf -m --prompt="jobid> " \
+          --header="TAB=multi-select  ENTER=output jobid(s)  CTRL-R=reload" \
+          --preview='jid=$(echo {} | awk "{print \$1}"); scontrol show job "$jid" 2>/dev/null | sed -n "1,120p"' \
+          --bind="ctrl-r:reload(squeue -u $USER -o '%.18i %.9P %.25j %.8T %.10M %.6D %R' -h)"
+  ) || return
+
+  echo "$selected" | awk '{print $1}'
+}
+
+# Pick job(s) then copy IDs to tmux buffer (and also echo them)
+sjid() {
+  local ids text
+  ids=$(sjid_pick) || return
+  text=$(echo "$ids" | paste -sd' ' -)
+  [[ -n "$text" ]] || return
+
+  if [[ -n "${TMUX:-}" ]] && command -v tmux >/dev/null 2>&1; then
+    printf "%s" "$text" | tmux load-buffer -
+    tmux display-message "Copied jobid(s): $text"
+  fi
+
+  echo "$text"
+}
+
+eval "$(dircolors -b)"
+alias ls='ls --color=auto'
+alias int_cpu="srun \
+	--nodes=1 \
+	--ntasks-per-node=1 \
+	--cpus-per-task=4 \
+	--partition=cpu \
+	--account=bgak-delta-cpu \
+	--time=48:00:00 \
+	--job-name=interact-cpu \
+	--pty /bin/bash"
