@@ -36,7 +36,7 @@ vim.opt.termguicolors = true
 -- Claude theme follows the terminal background. Your Ghostty is cream, so
 -- default to "light". Flip this one line to "dark" if you switch Ghostty to
 -- a dark background — the warm-charcoal Claude variant will kick in.
-vim.opt.background = "light"
+vim.opt.background = "dark"
 
 -- Keymaps
 vim.keymap.set("i", "kj", "<Esc>", { desc = "Escape insert mode" })

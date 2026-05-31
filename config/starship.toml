@@ -5,7 +5,7 @@ add_newline = true
 command_timeout = 2000
 
 # Place this line directly under the `command_timeout` entry at the top of the file
-palette = "catppuccin_macchiato"
+palette = "claude_dark"
 
 
 # Define the order and format of the information in our prompt
