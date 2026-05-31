@@ -67,7 +67,7 @@ nnoremap <space> za
 " Claude warm theme. Background stays transparent (follows the terminal /
 " Ghostty color); only accents + syntax are tuned to the clay/coral palette
 " shared with tmux + starship. Defined here, applied after Vundle loads.
-set background=dark
+set background=light
 
 function! s:ClaudeColors() abort
   " Transparent: the editor adopts the terminal background. Foreground colors
