@@ -121,10 +121,19 @@ export NVM_DIR="$HOME/.nvm"
 
 
 eval "$(starship init bash)"
-
 export PATH="$HOME/opt/nvim/bin:$PATH"
 eval "$(zoxide init bash)"
 eval "$(zoxide init bash --cmd cd)"
+
+# Keep full-screen apps from leaving the terminal cursor steady at the prompt.
+__hpc_blinking_block_cursor() {
+  printf '\e[1 q'
+}
+case ";${PROMPT_COMMAND:-};" in
+  *";__hpc_blinking_block_cursor;"*) ;;
+  *) PROMPT_COMMAND="__hpc_blinking_block_cursor${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
+esac
+
 alias nv="nvim"
 nvm use 22
 export PATH="$HOME/opt/nvim/bin:$PATH"

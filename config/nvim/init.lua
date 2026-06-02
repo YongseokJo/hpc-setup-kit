@@ -33,6 +33,13 @@ vim.opt.inccommand = 'split'
 vim.opt.cursorline = true
 vim.opt.scrolloff = 10
 vim.opt.termguicolors = true
+vim.opt.guicursor = {
+  "n-v-c:block-blinkwait700-blinkon400-blinkoff250",
+  "i-ci-ve:ver25-blinkwait700-blinkon400-blinkoff250",
+  "r-cr:hor20-blinkwait700-blinkon400-blinkoff250",
+  "o:hor50-blinkwait700-blinkon400-blinkoff250",
+  "a:blinkwait700-blinkon400-blinkoff250",
+}
 -- Claude theme follows the terminal background. Your Ghostty is cream, so
 -- default to "light". Flip this one line to "dark" if you switch Ghostty to
 -- a dark background — the warm-charcoal Claude variant will kick in.

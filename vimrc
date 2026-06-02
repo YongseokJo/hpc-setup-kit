@@ -10,6 +10,12 @@ set number
 inoremap kj <esc>
 set pastetoggle=<F2>
 
+" --- Cursor shape ---
+" Reassert blinking cursor shapes so Vim does not leave the terminal steady.
+let &t_SI = "\<Esc>[5 q"
+let &t_SR = "\<Esc>[3 q"
+let &t_EI = "\<Esc>[1 q"
+
 " --- Truecolor (24-bit), including inside tmux ---
 if exists('+termguicolors')
   " These let termguicolors work through tmux (tmux.conf advertises Tc).

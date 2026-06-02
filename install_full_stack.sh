@@ -524,6 +524,21 @@ if append_line_if_missing 'eval "$(zoxide init bash)"' "$BASHRC"; then
     echo -e "${BLUE}Added zoxide init to .bashrc${NC}"
 fi
 
+if ! grep -Fq '__hpc_blinking_block_cursor' "$BASHRC"; then
+    cat <<'EOF' >> "$BASHRC"
+
+# Keep full-screen apps from leaving the terminal cursor steady at the prompt.
+__hpc_blinking_block_cursor() {
+  printf '\e[1 q'
+}
+case ";${PROMPT_COMMAND:-};" in
+  *";__hpc_blinking_block_cursor;"*) ;;
+  *) PROMPT_COMMAND="__hpc_blinking_block_cursor${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
+esac
+EOF
+    echo -e "${BLUE}Added blinking block cursor reset to .bashrc${NC}"
+fi
+
 if append_line_if_missing 'alias nv="nvim"' "$BASHRC"; then
     echo -e "${BLUE}Added nv alias to .bashrc${NC}"
 fi
