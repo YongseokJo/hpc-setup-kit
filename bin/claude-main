@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+# claude-main — resume the "main" Claude Code session for a repo.
+#
+# "Main" = the largest session transcript (a proxy for the most substantive
+# thread), tie-broken by most recent activity. Recomputed on every run, so
+# there is no stored state that can go stale.
+#
+# Usage:
+#   claude-main [PATH]        Resume the main session for the repo at PATH
+#                             (default: $PWD). Launches Claude directly.
+#   claude-main -p, --print   Don't launch — just print the main session and
+#                             a few other recent ones, with resume commands.
+#   claude-main -a, --all     Print the main session for every repo Claude
+#                             has sessions for (never launches).
+#   claude-main -h, --help    Show this help.
+
+set -u  # deliberately no -e / pipefail: `sort | head` raises SIGPIPE.
+
+PROJECTS="$HOME/.claude/projects"
+# The command used to resume a session. Edit to taste.
+RESUME_CMD="claude --dangerously-skip-permissions --resume"
+
+usage() {
+  cat <<'EOF'
+claude-main — resume the "main" Claude Code session for a repo.
+
+"Main" = the largest session transcript (proxy for the most substantive
+thread), tie-broken by most recent activity. Recomputed each run.
+
+Usage:
+  claude-main [PATH]        Resume the main session for the repo at PATH
+                            (default: current dir). Launches Claude directly.
+  claude-main -p, --print   Don't launch — print the main session plus a few
+                            other recent ones, with resume commands.
+  claude-main -a, --all     Print the main session for every repo (no launch).
+  claude-main -h, --help    Show this help.
+EOF
+}
+
+human_size() { numfmt --to=iec "$1" 2>/dev/null || printf '%sB' "$1"; }
+
+rel_time() {
+  local then=$1 now diff
+  now=$(date +%s)
+  diff=$(( now - then ))
+  if   (( diff < 60 ));    then echo "just now"
+  elif (( diff < 3600 ));  then echo "$(( diff / 60 ))m ago"
+  elif (( diff < 86400 )); then echo "$(( diff / 3600 ))h ago"
+  else                          echo "$(( diff / 86400 ))d ago"
+  fi
+}
+
+# Encode an absolute path the way Claude Code names its project dirs:
+# every non-alphanumeric character becomes '-'.
+encode_path() { printf '%s' "$1" | sed 's/[^A-Za-z0-9]/-/g'; }
+
+# Read the true repo cwd recorded inside a session file. The first line is
+# often a summary with no cwd, so scan the first several lines.
+session_cwd() {
+  head -n 40 "$1" 2>/dev/null | python3 -c 'import sys, json
+for line in sys.stdin:
+    try:
+        cwd = json.loads(line).get("cwd")
+    except Exception:
+        continue
+    if cwd:
+        print(cwd); break' 2>/dev/null
+}
+
+# Human label for a project dir: prefer the cwd recorded in its newest
+# session, fall back to the encoded dir name.
+repo_label() {
+  local projdir=$1 newest cwd
+  newest=$(ls -1t "$projdir"/*.jsonl 2>/dev/null | head -n 1)
+  if [ -n "$newest" ]; then
+    cwd=$(session_cwd "$newest")
+    [ -n "$cwd" ] && { printf '%s' "$cwd"; return; }
+  fi
+  basename "$projdir"
+}
+
+# Echo "size<TAB>mtime<TAB>path" for the main session in a project dir.
+# Returns 1 if the dir holds no sessions.
+main_session() {
+  local projdir=$1 files=()
+  while IFS= read -r f; do files+=("$f"); done \
+    < <(find "$projdir" -maxdepth 1 -name '*.jsonl' 2>/dev/null)
+  (( ${#files[@]} == 0 )) && return 1
+  for f in "${files[@]}"; do
+    printf '%s\t%s\t%s\n' "$(stat -c %s "$f")" "$(stat -c %Y "$f")" "$f"
+  done | sort -k1,1nr -k2,2nr | head -n 1
+}
+
+# Print the main session for a project dir (and optionally other recent ones).
+# Args: projdir, label, show_others(0|1)
+report_repo() {
+  local projdir=$1 label=$2 show_others=${3:-0}
+  local line size mtime path id
+  if ! line=$(main_session "$projdir") || [ -z "$line" ]; then
+    printf '%s\n  (no sessions)\n' "$label"
+    return 0
+  fi
+  size=$(cut -f1 <<<"$line"); mtime=$(cut -f2 <<<"$line"); path=$(cut -f3 <<<"$line")
+  id=$(basename "$path" .jsonl)
+
+  printf '%s  main session:\n' "$label"
+  printf '  %s  (%s, last active %s)\n' "$id" "$(human_size "$size")" "$(rel_time "$mtime")"
+  printf '  resume:  %s %s\n' "$RESUME_CMD" "$id"
+
+  (( show_others )) || return 0
+  local printed=0 mt sz pf
+  while IFS=$'\t' read -r mt sz pf; do
+    [ "$pf" = "$path" ] && continue
+    mt=${mt%.*}  # find's %T@ is a float; rel_time needs an integer epoch
+    (( printed == 0 )) && printf '\n  other recent sessions:\n'
+    printf '    %s  (%s, %s)\n' "$(basename "$pf" .jsonl)" "$(human_size "$sz")" "$(rel_time "$mt")"
+    printed=$(( printed + 1 ))
+    (( printed >= 3 )) && break
+  done < <(
+    find "$projdir" -maxdepth 1 -name '*.jsonl' -printf '%T@\t%s\t%p\n' 2>/dev/null \
+      | sort -k1,1nr
+  )
+}
+
+LAUNCH=1
+ALL=0
+while (( $# > 0 )); do
+  case "$1" in
+    -h|--help)  usage; exit 0 ;;
+    -a|--all)   ALL=1;    shift ;;
+    -p|--print) LAUNCH=0; shift ;;
+    --)         shift; break ;;
+    -*)         echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
+    *)          break ;;
+  esac
+done
+
+if (( ALL )); then
+  [ -d "$PROJECTS" ] || { echo "No Claude projects dir at $PROJECTS" >&2; exit 1; }
+  first=1
+  while IFS=$'\t' read -r _ d; do
+    [ -d "$d" ] || continue
+    (( first )) || echo
+    first=0
+    report_repo "$d" "$(repo_label "$d")" 0
+  done < <(
+    for d in "$PROJECTS"/*/; do
+      d=${d%/}
+      newest=$(find "$d" -maxdepth 1 -name '*.jsonl' -printf '%T@\n' 2>/dev/null \
+               | sort -nr | head -n 1)
+      [ -n "$newest" ] && printf '%s\t%s\n' "${newest%.*}" "$d"
+    done | sort -k1,1nr
+  )
+  exit 0
+fi
+
+repo=${1:-$PWD}
+abs=$(readlink -f "$repo" 2>/dev/null || printf '%s' "$repo")
+projdir="$PROJECTS/$(encode_path "$abs")"
+if [ ! -d "$projdir" ]; then
+  echo "No Claude sessions found for: $abs" >&2
+  echo "(looked in $projdir)" >&2
+  exit 1
+fi
+
+if (( LAUNCH )); then
+  line=$(main_session "$projdir") || { echo "No sessions for $abs" >&2; exit 1; }
+  id=$(basename "$(cut -f3 <<<"$line")" .jsonl)
+  echo "Resuming $id  ($(human_size "$(cut -f1 <<<"$line")"), last active $(rel_time "$(cut -f2 <<<"$line")")) ..." >&2
+  exec $RESUME_CMD "$id"
+else
+  report_repo "$projdir" "$(basename "$abs")" 1
+fi

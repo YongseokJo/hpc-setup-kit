@@ -38,8 +38,13 @@ link "$REPO_DIR/vimrc"                "$HOME/.vimrc"
 link "$REPO_DIR/config/bashrc"        "$HOME/.bashrc"
 link "$REPO_DIR/config/zshrc"         "$HOME/.zshrc"
 
+# User commands onto PATH (~/.local/bin is added to PATH by config/bashrc).
+mkdir -p "$HOME/.local/bin"
+link "$REPO_DIR/bin/claude-main"      "$HOME/.local/bin/claude-main"
+
 echo
 echo "Done. Open a new shell / tmux session."
+echo "  - claude-main:   resume the main Claude Code session for a repo"
 echo "  - nvim plugins:  lazy.nvim installs on first launch"
 echo "  - vim plugins:   vim +PluginInstall +qall  (Vundle auto-clones)"
 echo "  - tmux plugins:  prefix (C-j) then I       (TPM)"
