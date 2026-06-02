@@ -12,9 +12,9 @@ cat >"$tmp_block" <<'EOF'
 alias down_popeye="scp yjo10@popeye:~/ceph/transfer/* ~/ceph/transfer"
 alias up_popeye="scp ~/ceph/transfer/* yjo10@popeye:~/ceph/transfer "
 alias popeye="ssh popeye"
-alias qs="squeue -u yjo10"
+alias qs="squeue -u gkerex"
 alias ll="ls -alrth"
-alias psal="ps --user=yjo10 -ux"
+alias psal="ps --user=gkerex -ux"
 alias venv="source ~/pyenv/venv/bin/activate"
 alias newvenv="source ~/pyenv/newvenv/bin/activate"
 alias torch="source ~/pyenv/torch/bin/activate"
@@ -27,8 +27,31 @@ alias mine="source ~/pyenv/mine/bin/activate"
 alias MI="source ~/pyenv/MI/bin/activate"
 alias tt="tmux attach -t 0"
 alias reload_bash="source ~/.bash_profile"
-alias gpu_check="~carriero/bin/gpuUsage -t 4 -u yjo10"
-alias rr="ssh rustyamd2"
+alias gpu_check="~carriero/bin/gpuUsage -t 4 -u gkerex"
+alias rr="ssh dt-login03"
+alias cd_p1="cd /projects/benb/gkerex"
+alias cd_p2="cd /projects/bfpt/gkerex"
+alias cd_w1="cd /work/nvme/benb/gkerex"
+alias cd_w2="cd /work/nvme/bfpt/gkerex"
+alias cd_w3="cd /work/hdd/benb/gkerex"
+alias cd_w4="cd /work/hdd/bfpt/gkerex"
+alias sb="sbatch"
+alias tm="turm -u 'gkerex'"
+alias sj="./submit_job.sh"
+alias int_gpu="srun \
+	--nodes=1 \
+	--ntasks-per-node=1 \
+	--cpus-per-task=6 \
+	--partition=gpuA40x4 \
+	--gpus-per-node=1 \
+	--account=bfpt-delta-gpu \
+	--time=48:00:00 \
+	--constraint="scratch" \
+	--job-name=interact \
+	--pty /bin/bash"
+
+	#--partition=gpuA100x4 \
+alias vi="nvim"
 # alias sr="sbatch run.sh"
 
 # sbatch helper: remember last run script per directory

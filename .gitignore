@@ -1,6 +1,8 @@
 # Backups / local artifacts
 .tmux.conf.bak*
 .vimrc.bak*
+vimrc.bak*
+*.bak.[0-9]*
 .DS_Store
 *.swp
 *.swo

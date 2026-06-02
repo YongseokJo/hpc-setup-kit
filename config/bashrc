@@ -5,6 +5,13 @@ case $- in
   *) return ;;
 esac
 
+# Claude and other tools sometimes start an interactive shell without a real
+# terminal while capturing environment snapshots. Keep that path minimal.
+if [[ ! -t 1 || "${TERM:-dumb}" == "dumb" ]]; then
+  export PATH="$HOME/.nvm/versions/node/v22.22.0/bin:$HOME/.local/bin:$HOME/bin:$PATH"
+  return
+fi
+
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
