@@ -439,7 +439,7 @@ echo -e "${GREEN}>>> Restoring Configurations from Kit...${NC}"
 
 # Tmux
 if [ -f "$CONFIG_SRC/tmux.conf" ]; then
-    cp "$CONFIG_SRC/tmux.conf" "$HOME/.tmux.conf"
+    ln -sf "$CONFIG_SRC/tmux.conf" "$HOME/.tmux.conf"
 else
     echo -e "${YELLOW}Warning: No tmux.conf in kit!${NC}"
 fi
