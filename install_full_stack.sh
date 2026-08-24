@@ -1,12 +1,12 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -eu
 
 # ==============================================================================
-# GEMINI HPC FULL STACK INSTALLER (CLEAN SLATE)
+# HPC FULL STACK BOOTSTRAP
 # ==============================================================================
 # Installs: Neovim, Tmux, Starship, Fzf, Ripgrep, Lazygit, Fd, Zoxide, Gh, Glow, Jq
 # Target: ~/.local/bin
-# Behavior: DELETES existing configs/binaries and reinstalls from Kit.
+# Behavior: Installs missing tools, then delegates config linking to install.sh.
 # ==============================================================================
 
 # 1. SETUP VARIABLES
@@ -28,45 +28,25 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${RED}!!! WARNING: CLEAN SLATE INSTALLATION !!!${NC}"
-echo -e "${RED}This will DELETE existing Neovim, Tmux, and Starship configurations/binaries in $HOME.${NC}"
+echo -e "${GREEN}HPC full-stack bootstrap${NC}"
+echo -e "${BLUE}Existing configuration and editor state will be preserved.${NC}"
 echo -e "${BLUE}Installation Target: $BIN_DIR${NC}"
 echo -e "${BLUE}Configuration Source: $CONFIG_SRC${NC}"
-sleep 2
 
-# 2. CLEANUP (DELETE EVERYTHING RELATED)
+# 2. CREATE INSTALL LOCATIONS
 # ------------------------------------------------------------------------------
-echo -e "${RED}>>> Cleaning up old configurations...${NC}"
-
-# Remove Binaries (SKIPPED: User wants to keep binaries if they exist)
-# rm -f "$BIN_DIR/nvim" "$BIN_DIR/tmux" "$BIN_DIR/starship" "$BIN_DIR/rg" "$BIN_DIR/lazygit" "$BIN_DIR/fzf" "$BIN_DIR/tmux-slurm" "$BIN_DIR/fd" "$BIN_DIR/zoxide" "$BIN_DIR/gh" "$BIN_DIR/glow" "$BIN_DIR/jq"
-
-# Remove Configs
-rm -rf "$HOME/.config/nvim"
-rm -f "$HOME/.tmux.conf"
-rm -f "$HOME/.config/starship.toml"
-
-# Remove Data/State (Deep Clean)
-rm -rf "$HOME/.local/share/nvim"
-rm -rf "$HOME/.tmux"
-rm -rf "$HOME/.fzf"
-# rm -rf "$HOME/opt/nvim" # User specified path - Keep if exists
-
-# Remove Libs (Optional, but ensures clean link)
-# rm -f "$LIB_DIR"/libevent* "$LIB_DIR"/libncurses* 
-
 mkdir -p "$BIN_DIR" "$LIB_DIR" "$INCLUDE_DIR" "$MAN_DIR" "$TMP_DIR"
 
 # Export paths for compilation
 # export CFLAGS="-I$INCLUDE_DIR"
 # export LDFLAGS="-L$LIB_DIR -Wl,-rpath,$LIB_DIR"
-if [ -n "$PKG_CONFIG_PATH" ]; then
+if [ -n "${PKG_CONFIG_PATH:-}" ]; then
     export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig:$PKG_CONFIG_PATH"
 else
     export PKG_CONFIG_PATH="$LIB_DIR/pkgconfig"
 fi
 export PATH="$BIN_DIR:$PATH"
-export LD_LIBRARY_PATH="$LIB_DIR:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$LIB_DIR:${LD_LIBRARY_PATH:-}"
 # Prefer real compilers over HPC wrappers for local builds.
 case "$(basename "${CC:-gcc}")" in
     cc|CC|mpicc|mpiicc|mpicxx|mpiicpc)
@@ -175,14 +155,15 @@ else
     download_and_extract "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VER}.tar.gz"
     cd "$TMP_DIR/ncurses-${NCURSES_VER}"
     # Simplified config matching user's success
-    if ! ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-widec > "$TMP_DIR/ncurses-configure.log" 2>&1; then
+    if ! ./configure --prefix="$INSTALL_PREFIX" --with-shared --with-termlib --enable-widec \
+        LDFLAGS="-Wl,-rpath,$LIB_DIR" > "$TMP_DIR/ncurses-configure.log" 2>&1; then
         echo -e "${RED}Ncurses configure failed. Showing tail of log:${NC}"
         tail -n 60 "$TMP_DIR/ncurses-configure.log" || true
         tail -n 60 "$TMP_DIR/ncurses-${NCURSES_VER}/config.log" || true
         exit 1
     fi
     make -j$(nproc) > /dev/null
-    make install > /dev/null 2>&1 || true # Suppress ldconfig noise
+    make install > /dev/null
     # Create compatibility symlinks (ncursesw -> ncurses) for programs expecting non-wide names
     cd "$LIB_DIR"
     ln -sf libncursesw.so libncurses.so
@@ -433,52 +414,20 @@ else
     curl -sS https://starship.rs/install.sh | sh -s -- -b "$BIN_DIR" -y > /dev/null
 fi
 
-# 9. RESTORE CONFIGURATIONS (Source of Truth: Kit)
+# 9. INSTALL CANONICAL CONFIGURATIONS AND HELPERS
 # ------------------------------------------------------------------------------
-echo -e "${GREEN}>>> Restoring Configurations from Kit...${NC}"
-
-# Tmux
-if [ -f "$CONFIG_SRC/tmux.conf" ]; then
-    ln -sf "$CONFIG_SRC/tmux.conf" "$HOME/.tmux.conf"
-else
-    echo -e "${YELLOW}Warning: No tmux.conf in kit!${NC}"
-fi
-
-# Starship
-mkdir -p "$HOME/.config"
-if [ -f "$CONFIG_SRC/starship.toml" ]; then
-    cp "$CONFIG_SRC/starship.toml" "$HOME/.config/starship.toml"
-fi
-
-# Neovim
-if [ -d "$CONFIG_SRC/nvim" ]; then
-    cp -r "$CONFIG_SRC/nvim" "$HOME/.config/"
-else
-    echo -e "${YELLOW}Warning: No nvim config in kit!${NC}"
-fi
-
-# 9.1. INSTALL UTILITY SCRIPTS
-# ------------------------------------------------------------------------------
-echo -e "${GREEN}>>> Installing utility scripts...${NC}"
-if [ -f "$KIT_ROOT/scripts/tmux-slurm" ]; then
-    cp "$KIT_ROOT/scripts/tmux-slurm" "$BIN_DIR/tmux-slurm"
-    chmod +x "$BIN_DIR/tmux-slurm"
-fi
-if [ -f "$KIT_ROOT/scripts/slurm_free.sh" ]; then
-    ln -sf "$KIT_ROOT/scripts/slurm_free.sh" "$BIN_DIR/slurm_free"
-fi
-if [ -f "$KIT_ROOT/scripts/slurm_snapshot.sh" ]; then
-    ln -sf "$KIT_ROOT/scripts/slurm_snapshot.sh" "$BIN_DIR/slurm_snapshot"
-fi
+echo -e "${GREEN}>>> Linking configurations and helper commands...${NC}"
+"$KIT_ROOT/install.sh"
 
 # 10. POST-INSTALL SETUP (Plugins)
 # ------------------------------------------------------------------------------
 echo -e "${GREEN}>>> Setting up Plugins...${NC}"
 
 # Tmux Plugins (TPM)
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-# Install plugins headlessly if possible (requires tmux server)
-# We can't easily do this without starting a server, but we can try:
+if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
+    mkdir -p "$HOME/.tmux/plugins"
+    git clone --depth 1 https://github.com/tmux-plugins/tpm "$HOME/.tmux/plugins/tpm"
+fi
 "$HOME/.tmux/plugins/tpm/bin/install_plugins" || true
 
 # Neovim Plugins (Lazy.nvim)
@@ -489,117 +438,9 @@ echo -e "${GREEN}>>> Syncing Neovim plugins...${NC}"
 # 11. FINALE
 # ------------------------------------------------------------------------------
 echo -e "${GREEN}======================================================${NC}"
-echo -e "${GREEN} CLEAN INSTALLATION COMPLETE! ${NC}"
+echo -e "${GREEN} FULL-STACK BOOTSTRAP COMPLETE! ${NC}"
 echo -e "${GREEN}======================================================${NC}"
 echo -e "1. Binaries are in: ${YELLOW}$BIN_DIR${NC}"
 echo -e "2. Neovim installed to: ${YELLOW}$HOME/opt/nvim${NC}"
-echo -e "3. Configs restored to: ${YELLOW}$HOME/.config${NC}"
-echo -e "4. Please ensure your PATH is updated:"
-echo -e "   ${YELLOW}export PATH=\"$HOME/opt/nvim/bin:$BIN_DIR:\$PATH\"${NC}"
-echo -e "   (Add this to your .bashrc)"
-# Automatically append if user requested, but script convention is just to echo.
-# However, user explicitly said "echo ... >> .bashrc". I'll do it.
-echo 'export PATH="$HOME/opt/nvim/bin:$PATH"' >> "$HOME/.bashrc"
-echo -e "${BLUE}Added $HOME/opt/nvim/bin to .bashrc${NC}"
-
-# 11.1. UPDATE .BASHRC (IDEMPOTENT)
-# ------------------------------------------------------------------------------
-BASHRC="$HOME/.bashrc"
-touch "$BASHRC"
-append_line_if_missing() {
-    local line="$1"
-    local file="$2"
-    if ! grep -Fqx "$line" "$file"; then
-        echo "$line" >> "$file"
-        return 0
-    fi
-    return 1
-}
-
-if append_line_if_missing 'eval "$(starship init bash)"' "$BASHRC"; then
-    echo -e "${BLUE}Added starship init to .bashrc${NC}"
-fi
-
-if append_line_if_missing 'eval "$(zoxide init bash)"' "$BASHRC"; then
-    echo -e "${BLUE}Added zoxide init to .bashrc${NC}"
-fi
-
-if ! grep -Fq '__hpc_blinking_block_cursor' "$BASHRC"; then
-    cat <<'EOF' >> "$BASHRC"
-
-# Keep full-screen apps from leaving the terminal cursor steady at the prompt.
-__hpc_blinking_block_cursor() {
-  printf '\e[1 q'
-}
-case ";${PROMPT_COMMAND:-};" in
-  *";__hpc_blinking_block_cursor;"*) ;;
-  *) PROMPT_COMMAND="__hpc_blinking_block_cursor${PROMPT_COMMAND:+; $PROMPT_COMMAND}" ;;
-esac
-EOF
-    echo -e "${BLUE}Added blinking block cursor reset to .bashrc${NC}"
-fi
-
-if append_line_if_missing 'alias nv="nvim"' "$BASHRC"; then
-    echo -e "${BLUE}Added nv alias to .bashrc${NC}"
-fi
-
-if append_line_if_missing 'alias vi="nvim"' "$BASHRC"; then
-    echo -e "${BLUE}Added vi alias to .bashrc${NC}"
-fi
-
-if ! grep -Eq '^vie[[:space:]]*\(\)' "$BASHRC"; then
-    cat <<'EOF' >> "$BASHRC"
-
-vie () {
-  local dir f
-  dir="$(find . -maxdepth 3 -type d 2>/dev/null | sed 's|^\./||' | grep -v '^\.$' | fzf --prompt 'dir> ')" || return
-  f="$(find "./$dir" -maxdepth 3 -type f 2>/dev/null | sed "s|^\./$dir/||" | fzf --prompt 'nvim> ')" || return
-  nvim "./$dir/$f"
-}
-EOF
-    echo -e "${BLUE}Added vie helper to .bashrc${NC}"
-fi
-
-if ! grep -Eq '^vir[[:space:]]*\(\)' "$BASHRC"; then
-    cat <<'EOF' >> "$BASHRC"
-
-vir () {
-  local f
-  f="$(find . -type f -printf '%P\n' 2>/dev/null | fzf --prompt 'nvim> ')" || return
-  nvim "./$f"
-}
-EOF
-    echo -e "${BLUE}Added vir helper to .bashrc${NC}"
-fi
-
-if ! grep -Eq '^vif[[:space:]]*\(\)' "$BASHRC"; then
-    cat <<'EOF' >> "$BASHRC"
-
-vif () {
-  local f
-  f="$(find . -maxdepth 1 -type f -printf '%P\n' 2>/dev/null | fzf --prompt 'nvim> ')" || return
-  nvim "./$f"
-}
-EOF
-    echo -e "${BLUE}Added vif helper to .bashrc${NC}"
-fi
-
-if ! grep -Eq '^vifind[[:space:]]*\(\)' "$BASHRC"; then
-    cat <<'EOF' >> "$BASHRC"
-
-vifind () {  # nvfind <filename or glob>
-  local pat="${1:?usage: nvfind <name>}"
-  local matches
-  mapfile -t matches < <(find . -type f -name "$pat" -print 2>/dev/null | sed 's|^\./||')
-  if (( ${#matches[@]} == 0 )); then
-    echo "No match for: $pat" >&2
-    return 1
-  elif (( ${#matches[@]} == 1 )); then
-    nvim "${matches[0]}"
-  else
-    printf '%s\n' "${matches[@]}" | fzf --prompt 'open> ' | xargs -r nvim
-  fi
-}
-EOF
-    echo -e "${BLUE}Added vifind helper to .bashrc${NC}"
-fi
+echo -e "3. Configs are symlinked from: ${YELLOW}$KIT_ROOT/config${NC}"
+echo -e "4. Verify with: ${YELLOW}$KIT_ROOT/install.sh --check${NC}"

@@ -1,46 +1,41 @@
-#
-# .zshrc is sourced in interactive shells.
-# It should contain commands to set up aliases,
-# functions, options, key bindings, etc.
-#
+# ~/.zshrc — interactive Zsh setup for the same environment as config/bashrc.
 
-autoload -U compinit
-compinit
+export PATH="$HOME/.local/bin:$HOME/bin:$HOME/opt/nvim/bin:$PATH"
 
-#allow tab completion in the middle of a word
-setopt COMPLETE_IN_WORD
+autoload -Uz compinit
+# Reuse the completion dump when possible; a full security scan on every shell
+# is noticeably expensive on network-mounted cluster homes.
+compinit -C
 
-## keep background processes at full speed
-#setopt NOBGNICE
-## restart running processes on exit
-#setopt HUP
+setopt COMPLETE_IN_WORD NO_BEEP
+bindkey -v
+bindkey -M viins 'kj' vi-cmd-mode
 
-## history
-#setopt APPEND_HISTORY
-## for sharing history between zsh processes
-#setopt INC_APPEND_HISTORY
-#setopt SHARE_HISTORY
-
-## never ever beep ever
-#setopt NO_BEEP
-
-## automatically decide when to page a list of completions
-#LISTMAX=0
-
-## disable mail checking
-#MAILCHECK=0
-
-# autoload -U colors
-#colors
-
-# >>> tmux-vim-portable aliases >>>
-### Alias
+# Cluster navigation and common commands.
 alias down_popeye="scp yjo10@popeye:~/ceph/transfer/* ~/ceph/transfer"
 alias up_popeye="scp ~/ceph/transfer/* yjo10@popeye:~/ceph/transfer "
 alias popeye="ssh popeye"
-alias qs="squeue -u yjo10"
+alias qs="squeue -u $USER"
 alias ll="ls -alrth"
-alias psal="ps --user=yjo10 -ux"
+alias psal="ps --user=$USER -ux"
+alias rr="ssh dt-login02"
+alias cd_p1="cd /projects/benb/$USER"
+alias cd_p2="cd /projects/bfpt/$USER"
+alias cd_w1="cd /work/nvme/benb/$USER"
+alias cd_w2="cd /work/nvme/bfpt/$USER"
+alias cd_w3="cd /work/hdd/benb/$USER"
+alias cd_w4="cd /work/hdd/bfpt/$USER"
+alias sb="sbatch"
+alias sj="./submit_job.sh"
+alias tm="$HOME/pyenv/torch/bin/turm -u '$USER'"
+alias tt="tmux attach -t 0"
+alias reload_shell="source ~/.zshrc"
+alias gpu_check="~carriero/bin/gpuUsage -t 4 -u $USER"
+alias vi="nvim"
+alias nv="nvim"
+alias cld='claude --dangerously-skip-permissions'
+
+# Python environments.
 alias venv="source ~/pyenv/venv/bin/activate"
 alias newvenv="source ~/pyenv/newvenv/bin/activate"
 alias torch="source ~/pyenv/torch/bin/activate"
@@ -51,39 +46,52 @@ alias venv_sbi="source ~/pyenv/venv_sbi/bin/activate"
 alias lightning="source ~/pyenv/lightning/bin/activate"
 alias mine="source ~/pyenv/mine/bin/activate"
 alias MI="source ~/pyenv/MI/bin/activate"
-alias tt="tmux attach -t 0"
-alias reload_bash="source ~/.bash_profile"
-alias gpu_check="~carriero/bin/gpuUsage -t 4 -u yjo10"
-alias rr="ssh rustyamd2"
-# alias sr="sbatch run.sh"
 
-# sbatch helper: remember last run script per directory
-function sr {
-  local last_file_path=".last_run_code"
-  if [ $# -eq 1 ]; then
-    echo "$1" > "$last_file_path"
+alias int_gpu="srun --nodes=1 --ntasks-per-node=1 --cpus-per-task=6 --partition=gpuA40x4 --gpus-per-node=1 --account=bfpt-delta-gpu --time=48:00:00 --constraint=scratch --job-name=interact --pty /bin/bash"
+alias int_cpu="srun --nodes=1 --ntasks-per-node=1 --cpus-per-task=4 --partition=cpu --account=bgak-delta-cpu --time=48:00:00 --job-name=interact-cpu --pty /bin/bash"
+
+# Remember the last Slurm submission script used in each directory.
+sr() {
+  local last_file_path=.last_run_code last_file
+  if (( $# == 1 )); then
+    print -r -- "$1" >| "$last_file_path"
     sbatch "$1"
-  elif [ -f "$last_file_path" ]; then
-    local last_file
-    last_file=$(cat "$last_file_path")
-    if [ -f "$last_file" ]; then
+  elif [[ -f "$last_file_path" ]]; then
+    last_file=$(<"$last_file_path")
+    if [[ -f "$last_file" ]]; then
       sbatch "$last_file"
-      echo "$last_file"
+      print -r -- "$last_file"
     else
-      echo "Error: Previously saved file '$last_file' no longer exists in this directory."
+      print -u2 -- "Previously saved file does not exist: $last_file"
+      return 1
     fi
   else
-    echo "Usage: sr <filename>"
-    echo "Or run without arguments to re-run the last script in this directory."
+    print -u2 -- "Usage: sr <filename> (or sr to repeat the saved script)"
+    return 2
   fi
 }
 
-# Bash-only keybindings (guarded)
-if [ -n "${BASH_VERSION:-}" ]; then
-  set -o vi
-	bind '"kj": vi-movement-mode'
-	bind '"^z": run-fg-editor'
-	bind '"\e[A": history-search-backward'
-	bind '"\e[B": history-search-forward'
+if [[ -x "$HOME/pyenv/torch/bin/turm" ]]; then
+  eval "$("$HOME/pyenv/torch/bin/turm" completion zsh 2>/dev/null)"
 fi
-# <<< tmux-vim-portable aliases <<<
+
+export NVM_DIR="$HOME/.nvm"
+for node_bin in "$NVM_DIR"/versions/node/*/bin(N); do
+  path=("$node_bin" $path)
+done
+
+# Keep Node available immediately, but defer the expensive nvm initialization
+# until a version-management command is actually requested.
+if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+  nvm() {
+    unfunction nvm
+    source "$NVM_DIR/nvm.sh"
+    nvm "$@"
+  }
+fi
+
+command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh)"
+  eval "$(zoxide init zsh --cmd cd)"
+fi

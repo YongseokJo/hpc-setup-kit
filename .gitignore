@@ -4,6 +4,7 @@
 vimrc.bak*
 *.bak.[0-9]*
 .DS_Store
+.nvimlog
 *.swp
 *.swo
 
